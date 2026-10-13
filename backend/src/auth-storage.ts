@@ -1,0 +1,1 @@
+export const authStorage = typeof window !== 'undefined' ? window.localStorage : undefined;

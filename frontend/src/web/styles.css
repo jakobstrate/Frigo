@@ -1,0 +1,63 @@
+.frigo-web {
+  --frigo-ink: #19251f;
+  --frigo-green: #247451;
+  --frigo-line: #dce4db;
+  min-height: 100vh;
+  color: var(--frigo-ink);
+  background: #f5f7f2;
+  font-family: 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.frigo-web * { box-sizing: border-box; }
+.frigo-web-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 6%;
+  border-bottom: 1px solid var(--frigo-line);
+  background: #fff;
+}
+.frigo-web-brand { color: var(--frigo-ink); font-size: 26px; font-weight: 700; text-decoration: none; }
+.frigo-web-link { color: var(--frigo-green); font-size: 14px; font-weight: 600; }
+.frigo-web-main { display: grid; place-items: center; padding: 72px 24px; }
+.frigo-web-login { width: 100%; max-width: 420px; }
+.frigo-web-eyebrow { color: var(--frigo-green); font-size: 11px; font-weight: 800; }
+.frigo-web h1 { margin: 12px 0; font-size: 29px; line-height: 1.2; overflow-wrap: anywhere; }
+.frigo-web-subtitle { color: #69766e; font-size: 15px; line-height: 22px; margin-bottom: 32px; }
+.frigo-web form { display: flex; flex-direction: column; gap: 12px; }
+.frigo-web label { font-size: 13px; font-weight: 600; margin-top: 6px; }
+.frigo-web input {
+  width: 100%;
+  height: 52px;
+  padding: 0 15px;
+  border: 1px solid var(--frigo-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--frigo-ink);
+  font: inherit;
+  font-size: 16px;
+}
+.frigo-web input:focus-visible, .frigo-web button:focus-visible, .frigo-web a:focus-visible {
+  outline: 2px solid var(--frigo-green);
+  outline-offset: 3px;
+}
+.frigo-web button {
+  min-height: 52px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--frigo-green);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.frigo-web button:disabled { opacity: 0.52; cursor: default; }
+.frigo-web-error { color: #a33d36; font-size: 13px; line-height: 19px; margin: 0; }
+.frigo-web-footer { color: #69766e; font-size: 12px; line-height: 18px; margin-top: 30px; text-align: center; }
+@media (max-width: 480px) {
+  .frigo-web-header { padding: 20px 24px; }
+  .frigo-web-main { padding-top: 40px; }
+}

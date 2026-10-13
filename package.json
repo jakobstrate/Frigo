@@ -36,10 +36,13 @@
   },
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
+    "start:app": "expo start --port 8081",
+    "start:web": "expo start --web --port 8082",
+    "build:web": "expo export --platform web",
+    "typecheck": "tsc --noEmit",
+    "android": "expo start --android --port 8081",
+    "ios": "expo start --ios --port 8081",
+    "web": "npm run start:web",
     "lint": "expo lint"
   },
   "private": true
