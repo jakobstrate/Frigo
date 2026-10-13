@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
+import { router, type Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/frontend/src/components/external-link';
@@ -10,14 +12,45 @@ import { Collapsible } from '@/frontend/src/components/ui/collapsible';
 import { WebBadge } from '@/frontend/src/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/frontend/src/constants/theme';
 import { useTheme } from '@/frontend/src/hooks/use-theme';
+import { supabase } from '@/backend/src/supabase';
 
 export default function TabTwoScreen() {
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
     bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
   };
   const theme = useTheme();
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function verifyAccess() {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      if (!user) {
+        router.replace('/' as Href);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!isActive) return;
+      if (profile?.status === 'active') {
+        setIsAuthorized(true);
+      } else {
+        router.replace('/pending' as Href);
+      }
+    }
+
+    void verifyAccess();
+    return () => { isActive = false; };
+  }, []);
 
   const contentPlatformStyle = Platform.select({
     android: {
@@ -31,6 +64,10 @@ export default function TabTwoScreen() {
       paddingBottom: Spacing.four,
     },
   });
+
+  if (!isAuthorized) {
+    return <ActivityIndicator style={styles.accessLoader} color={theme.text} />;
+  }
 
   return (
     <ScrollView
@@ -126,6 +163,7 @@ export default function TabTwoScreen() {
 }
 
 const styles = StyleSheet.create({
+  accessLoader: { flex: 1 },
   scrollView: {
     flex: 1,
   },
