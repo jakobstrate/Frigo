@@ -1,56 +1,52 @@
-# Welcome to your Expo app 👋
+# Frigo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Frigo has an Expo mobile app and a website in the same repository. They share dependencies and backend code, but can have different screens, styles, and navigation.
 
-## Get started
+## Run web and mobile separately
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing files inside **frontend/src/app**. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install dependencies with `npm install`, then run either command, or both in separate terminals:
 
 ```bash
-npm run reset-project
+npm run start:app
+npm run start:web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The mobile development server uses port 8081. Scan its QR code with a compatible Expo Go client or press `i` / `a` for a simulator. `npm run ios` and `npm run android` also start the mobile server.
 
-### Other setup steps
+The website runs at http://localhost:8082. `npm run web` is an alias for `npm run start:web`. Stopping one server does not stop the other.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Separate platform screens
 
-## Learn more
+The frontend is organized by platform:
 
-To learn more about developing your project with Expo, look at the following resources:
+```text
+frontend/src/
+	routes/          Expo Router entry files (thin re-exports)
+	web/             Website pages, layout, and styles.css
+	app/             Mobile screens and navigation layout
+	shared/screens/  Screens currently used by both platforms
+	components/      Shared and platform-specific components
+	hooks/           Shared hooks, including use-login.ts
+	constants/       Shared theme constants
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Edit `frontend/src/web/index.tsx` for the browser sign-in page and `frontend/src/app/index.tsx` for mobile sign-in. Each platform also has its own `layout.tsx`. The web sign-in page has no create-account link; mobile keeps it.
 
-## Join the community
+Signup, pending, explore, and admin review route directly to `shared/screens`, without intermediate files in `app` or `web`. Changes in `shared/screens` affect both platforms.
 
-Join our community of developers creating universal apps.
+Create platform-specific files only when a screen actually differs. For example, to give admin review a different web UI, add `web/admin-review.tsx` with that implementation and `routes/admin-review.web.tsx` re-exporting it. The existing `routes/admin-review.tsx` continues to use the shared screen on mobile. For a mobile-only UI, add `app/admin-review.tsx` and point the regular route entry to it, keeping a web route entry pointing to the shared or web implementation.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The web admin dashboard uses `web/admin-access.ts` for role-based page and modal permissions. Add page permissions there to expose new dashboard sections; modal permissions use the `modal:<name>` format with `hasAdminPermission`.
+
+The `routes` directory contains only route wiring and is configured as the Expo Router root in `app.json`. Expo Router selects `.web.tsx` route entries for web and the regular `.tsx` entries for mobile. Keep a regular route file alongside every `.web.tsx` route. Shared backend code remains in `backend/src`.
+
+This is one Expo project with independent development servers and platform UIs, not two separately managed dependency projects. Both platforms still use the same Supabase project and public environment variables. Browser sessions and native sessions are stored separately.
+
+## Checks and builds
+
+```bash
+npm run typecheck
+npm run build:web
+```
+
+The website build is exported to `dist` for static hosting. Native production builds use the existing Expo configuration with EAS Build or `npx expo run:ios` / `npx expo run:android`.

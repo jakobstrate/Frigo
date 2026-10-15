@@ -42,7 +42,7 @@ type EmployeeRequest = {
   companyName: string | null;
 };
 
-export default function AdminReviewScreen() {
+export default function AdminReviewScreen({ embedded = false }: { embedded?: boolean }) {
   const [reviewer, setReviewer] = useState<Reviewer | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [requests, setRequests] = useState<EmployeeRequest[]>([]);
@@ -197,32 +197,36 @@ export default function AdminReviewScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, embedded && styles.embeddedSafeArea]}>
       <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadData(true)} tintColor={colors.green} />}
       >
         <View style={styles.page}>
-          <View style={styles.topBar}>
-            <View style={styles.brandRow}>
-              <View style={styles.brandMark}><Text style={styles.brandMarkText}>F</Text></View>
-              <Text style={styles.brand}>Frigo</Text>
+          {!embedded && (
+            <View style={styles.topBar}>
+              <View style={styles.brandRow}>
+                <View style={styles.brandMark}><Text style={styles.brandMarkText}>F</Text></View>
+                <Text style={styles.brand}>Frigo</Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={handleSignOut} hitSlop={10}>
+                <Text style={styles.signOut}>Sign out</Text>
+              </Pressable>
             </View>
-            <Pressable accessibilityRole="button" onPress={handleSignOut} hitSlop={10}>
-              <Text style={styles.signOut}>Sign out</Text>
-            </Pressable>
-          </View>
+          )}
 
-          <View style={styles.heading}>
-            <Text style={styles.eyebrow}>{reviewer?.role === 'super_admin' ? 'SUPERADMIN' : 'COMPANY ADMIN'}</Text>
-            <Text style={styles.title}>Employee requests</Text>
-            <Text style={styles.subtitle}>
-              {reviewer?.role === 'super_admin'
-                ? 'Review requests addressed to you and choose a company when approving.'
-                : `Review employee access requests for ${companies[0]?.name ?? 'your company'}.`}
-            </Text>
-          </View>
+          {!embedded && (
+            <View style={styles.heading}>
+              <Text style={styles.eyebrow}>{reviewer?.role === 'super_admin' ? 'SUPERADMIN' : 'COMPANY ADMIN'}</Text>
+              <Text style={styles.title}>Employee requests</Text>
+              <Text style={styles.subtitle}>
+                {reviewer?.role === 'super_admin'
+                  ? 'Review requests addressed to you and choose a company when approving.'
+                  : `Review employee access requests for ${companies[0]?.name ?? 'your company'}.`}
+              </Text>
+            </View>
+          )}
 
           {!!error && <Text accessibilityRole="alert" style={styles.errorBanner}>{error}</Text>}
           {!!notice && <Text accessibilityRole="alert" style={styles.noticeBanner}>{notice}</Text>}
@@ -315,6 +319,7 @@ export default function AdminReviewScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
+  embeddedSafeArea: { backgroundColor: 'transparent' },
   scrollContent: { flexGrow: 1 },
   page: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 24 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 48 },
