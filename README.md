@@ -36,6 +36,8 @@ Signup, pending, explore, and admin review route directly to `shared/screens`, w
 
 Create platform-specific files only when a screen actually differs. For example, to give admin review a different web UI, add `web/admin-review.tsx` with that implementation and `routes/admin-review.web.tsx` re-exporting it. The existing `routes/admin-review.tsx` continues to use the shared screen on mobile. For a mobile-only UI, add `app/admin-review.tsx` and point the regular route entry to it, keeping a web route entry pointing to the shared or web implementation.
 
+The web admin dashboard uses `web/admin-access.ts` for role-based page and modal permissions. Add page permissions there to expose new dashboard sections; modal permissions use the `modal:<name>` format with `hasAdminPermission`.
+
 The `routes` directory contains only route wiring and is configured as the Expo Router root in `app.json`. Expo Router selects `.web.tsx` route entries for web and the regular `.tsx` entries for mobile. Keep a regular route file alongside every `.web.tsx` route. Shared backend code remains in `backend/src`.
 
 This is one Expo project with independent development servers and platform UIs, not two separately managed dependency projects. Both platforms still use the same Supabase project and public environment variables. Browser sessions and native sessions are stored separately.
