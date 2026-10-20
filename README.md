@@ -23,6 +23,14 @@ Company creation and company-admin invitations are handled by the Supabase Edge 
 supabase functions deploy create-company
 ```
 
+Company editing uses the `update-company` Edge Function and the `update_company_details` SQL function. Run `supabase/update_company_details.sql` in the Supabase SQL Editor, then deploy the Edge Function:
+
+```bash
+supabase functions deploy update-company
+```
+
+The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
+
 The function uses Supabase's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets, which are available to deployed functions by default. Invitation links open the app's `/invite` page, where the administrator sets a password. Add the hosted app's `/invite` URL (and any local development invite URL) to Supabase Auth's allowed redirect URLs. Set the `INVITE_REDIRECT_URL` function secret if the invite should always return to a specific app URL.
 
 ## Separate platform screens
