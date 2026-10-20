@@ -20,10 +20,12 @@ function EditCompanyModal({
   company,
   onClose,
   onSaved,
+  onError,
 }: {
   company: CompanyDetails;
   onClose: () => void;
   onSaved: (name: string) => Promise<void>;
+  onError: (message: string) => void;
 }) {
   const [name, setName] = useState(company.name);
   const [departments, setDepartments] = useState<EditableDepartment[]>(() =>
@@ -87,7 +89,9 @@ function EditCompanyModal({
 
       await onSaved(updatedName);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Virksomheden kunne ikke opdateres.');
+      const message = error instanceof Error ? error.message : 'Virksomheden kunne ikke opdateres.';
+      setFormError(message);
+      onError(message);
     } finally {
       setIsSaving(false);
     }
@@ -252,9 +256,11 @@ function DeleteCompanyModal({
 function CreateCompanyModal({
   onClose,
   onCreated,
+  onError,
 }: {
   onClose: () => void;
   onCreated: (companyName: string, adminEmail: string) => Promise<void>;
+  onError: (message: string) => void;
 }) {
   const [companyName, setCompanyName] = useState('');
   const [departmentName, setDepartmentName] = useState('');
@@ -309,7 +315,9 @@ function CreateCompanyModal({
 
       await onCreated(companyName.trim(), adminEmail.trim());
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Virksomheden kunne ikke oprettes.');
+      const message = error instanceof Error ? error.message : 'Virksomheden kunne ikke oprettes.';
+      setFormError(message);
+      onError(message);
     } finally {
       setIsSaving(false);
     }
@@ -496,6 +504,7 @@ export default function CompanyManagement() {
 
   async function handleCompanyCreated(companyName: string, adminEmail: string) {
     setIsModalOpen(false);
+    setActionError('');
     setSuccessMessage(`Virksomheden ${companyName} er oprettet. Invitationen er sendt til ${adminEmail}.`);
     await loadCompanies();
   }
@@ -529,6 +538,9 @@ export default function CompanyManagement() {
 
   return (
     <>
+      {successMessage && <p className="frigo-admin-notice" role="status">{successMessage}</p>}
+      {actionError && <p className="frigo-admin-error" role="alert">{actionError}</p>}
+      {loadError && <p className="frigo-admin-error" role="alert">Virksomheder kunne ikke indlæses: {loadError}</p>}
       <div className="frigo-admin-section-header">
         <div>
           <h2>Alle virksomheder</h2>
@@ -538,6 +550,7 @@ export default function CompanyManagement() {
           type="button"
           onClick={() => {
             setSuccessMessage('');
+            setActionError('');
             setIsModalOpen(true);
           }}
         >
@@ -545,9 +558,6 @@ export default function CompanyManagement() {
           Opret virksomhed
         </button>
       </div>
-      {successMessage && <p className="frigo-admin-notice" role="status">{successMessage}</p>}
-      {actionError && <p className="frigo-admin-error" role="alert">{actionError}</p>}
-      {loadError && <p className="frigo-admin-error" role="alert">Virksomheder kunne ikke indlæses: {loadError}</p>}
       {isLoading ? (
         <div className="frigo-admin-company-message" role="status">Indlæser virksomheder...</div>
       ) : companies.length > 0 ? (
@@ -586,6 +596,7 @@ export default function CompanyManagement() {
                   className="frigo-admin-delete-button"
                   type="button"
                   onClick={() => {
+                    setSuccessMessage('');
                     setActionError('');
                     setCompanyBeingDeleted(company);
                   }}
@@ -618,6 +629,7 @@ export default function CompanyManagement() {
         <CreateCompanyModal
           onClose={() => setIsModalOpen(false)}
           onCreated={handleCompanyCreated}
+          onError={setActionError}
         />
       )}
       {companyBeingEdited && (
@@ -625,6 +637,7 @@ export default function CompanyManagement() {
           company={companyBeingEdited}
           onClose={() => setCompanyBeingEdited(null)}
           onSaved={handleCompanyUpdated}
+          onError={setActionError}
         />
       )}
       {companyBeingDeleted && (

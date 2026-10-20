@@ -295,8 +295,8 @@
 .frigo-admin-empty-state strong { color: #35405d; font-size: 13px; }
 .frigo-admin-empty-state span { max-width: 420px; color: var(--admin-muted); font-size: 12px; line-height: 1.55; }
 .frigo-admin-notice, .frigo-admin-error { margin: 0 0 18px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
-.frigo-admin-notice { color: #69510d; background: #fff6dc; }
-.frigo-admin-error { color: #a33d36; background: #f8e9e6; }
+.frigo-admin-notice { border: 1px solid #cbe5d3; border-left: 4px solid #348255; color: #225c3b; background: #eaf5ed; }
+.frigo-admin-error { border: 1px solid #f0d3d0; border-left: 4px solid #b54037; color: #8f302a; background: #fbefed; }
 .frigo-admin-loading, .frigo-admin-load-error { display: grid; min-height: 100vh; place-items: center; padding: 24px; color: var(--admin-muted); background: #f6f7fb; font-family: 'Helvetica Neue', Helvetica, sans-serif; }
 .frigo-admin-load-error { color: #a33d36; }
 .frigo-admin-section-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
