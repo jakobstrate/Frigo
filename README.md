@@ -15,6 +15,16 @@ The mobile development server uses port 8081. Scan its QR code with a compatible
 
 The website runs at http://localhost:8082. `npm run web` is an alias for `npm run start:web`. Stopping one server does not stop the other.
 
+## Creating companies
+
+Company creation and company-admin invitations are handled by the Supabase Edge Function `create-company`. Apply `supabase/schema.sql` and then `supabase/auth_flow.sql` to the Supabase project, and deploy the function with the Supabase CLI:
+
+```bash
+supabase functions deploy create-company
+```
+
+The function uses Supabase's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets, which are available to deployed functions by default. Invitation links open the app's `/invite` page, where the administrator sets a password. Add the hosted app's `/invite` URL (and any local development invite URL) to Supabase Auth's allowed redirect URLs. Set the `INVITE_REDIRECT_URL` function secret if the invite should always return to a specific app URL.
+
 ## Separate platform screens
 
 The frontend is organized by platform:

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/backend/src/supabase';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
+import CompanyManagement from '@/frontend/src/web/company-management';
 
 type AdminProfile = {
   id: string;
@@ -103,6 +104,10 @@ function AdminPageContent({
         </section>
       </>
     );
+  }
+
+  if (page === 'companies') {
+    return <CompanyManagement />;
   }
 
   return (
