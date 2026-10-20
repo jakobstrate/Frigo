@@ -1,10 +1,9 @@
 import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { supabase } from '@/backend/src/supabase';
+import { useLogin } from '@/frontend/src/hooks/use-login';
 
 const colors = {
   background: '#F5F7F2',
@@ -17,49 +16,7 @@ const colors = {
 };
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  async function handleLogin() {
-    setError('');
-    setIsLoading(true);
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (signInError) {
-      setError(signInError.message);
-      setIsLoading(false);
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('status, role')
-      .eq('id', data.user.id)
-      .maybeSingle();
-
-    setIsLoading(false);
-    if (profileError || !profile) {
-      setError('Your account is not linked to a Frigo profile yet. Please contact your administrator.');
-      await supabase.auth.signOut();
-      return;
-    }
-
-    if (profile.status !== 'active') {
-      router.replace('/pending' as Href);
-      return;
-    }
-
-    if (profile.role === 'super_admin' || profile.role === 'company_admin') {
-      router.replace('/admin-review' as Href);
-    } else {
-      router.replace('/explore');
-    }
-  }
+  const { email, setEmail, password, setPassword, error, isLoading, handleLogin } = useLogin();
 
   return (
     <SafeAreaView style={styles.safeArea}>

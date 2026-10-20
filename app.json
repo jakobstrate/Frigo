@@ -27,7 +27,7 @@
       [
         "expo-router",
         {
-          "root": "frontend/src/app"
+          "root": "frontend/src/routes"
         }
       ],
       [
