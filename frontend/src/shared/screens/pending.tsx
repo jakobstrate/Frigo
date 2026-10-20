@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
+import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 const colors = { background: '#F5F7F2', ink: '#19251F', muted: '#69766E', line: '#DCE4DB', green: '#247451', white: '#FFFFFF', red: '#A33D36' };
 
@@ -68,8 +69,7 @@ export default function PendingScreen() {
       <StatusBar style="dark" />
       <View style={styles.content}>
         <View style={styles.brandRow}>
-          <View style={styles.brandMark}><Text style={styles.brandMarkText}>F</Text></View>
-          <Text style={styles.brand}>Frigo</Text>
+          <FrigoLogo size={34} />
         </View>
 
         {!request && !error ? <ActivityIndicator color={colors.green} size="large" /> : (
@@ -98,9 +98,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 30 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, position: 'absolute', top: 28, left: 28 },
-  brandMark: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: colors.white, fontSize: 20, fontWeight: '800' },
-  brand: { color: colors.ink, fontSize: 21, fontWeight: '700' },
   messageBlock: { alignItems: 'center', gap: 13 },
   statusMark: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#DFEEE5', alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
   declinedMark: { backgroundColor: '#F4E2DF' },

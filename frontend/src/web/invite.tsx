@@ -2,6 +2,7 @@ import { router, type Href } from 'expo-router';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
+import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 type InviteState = 'loading' | 'ready' | 'error';
 
@@ -65,7 +66,7 @@ export default function InvitePage() {
   return (
     <div className="frigo-web">
       <header className="frigo-web-header">
-        <span className="frigo-web-brand">Frigo</span>
+        <FrigoLogo size={34} />
       </header>
       <main className="frigo-web-main">
         <section className="frigo-web-login" aria-labelledby="invite-title">

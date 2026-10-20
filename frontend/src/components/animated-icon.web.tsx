@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Keyframe, Easing } from 'react-native-reanimated';
 
 import classes from './animated-icon.module.css';
+import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
 const DURATION = 300;
 
 export function AnimatedSplashOverlay() {
@@ -66,7 +67,7 @@ export function AnimatedIcon() {
       </Animated.View>
 
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+        <FrigoLogoIcon size={76} />
       </Animated.View>
     </View>
   );

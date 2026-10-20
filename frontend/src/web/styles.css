@@ -8,6 +8,110 @@
   font-family: 'Helvetica Neue', Helvetica, sans-serif;
 }
 
+.frigo-login-page {
+  --login-blue: #2115d9;
+  --login-ink: #19213e;
+  --login-muted: #8490a3;
+  --login-line: #e3e8ef;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  grid-template-columns: 48% 52%;
+  color: var(--login-ink);
+  background: #edf2f6;
+}
+.frigo-login-brand-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 6vw, 88px);
+  color: #fff;
+  background: var(--login-blue);
+}
+.frigo-login-brand-content { width: 100%; max-width: 510px; }
+.frigo-login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.frigo-web .frigo-login-brand-content h1 {
+  max-width: 530px;
+  margin: 18px 0 0;
+  color: #fff;
+  font-size: clamp(25px, 3.2vw, 44px);
+  font-weight: 650;
+  line-height: 1.12;
+}
+.frigo-login-form-panel { display: grid; place-items: center; padding: 36px; }
+.frigo-login-card {
+  width: min(100%, 360px);
+  padding: 34px 32px 30px;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgb(25 40 66 / 5%);
+}
+.frigo-login-card h2 { margin: 0 0 5px; color: #202944; font-size: 21px; font-weight: 700; }
+.frigo-login-subtitle { margin: 0 0 22px; color: var(--login-muted); font-size: 12px; }
+.frigo-web .frigo-login-card form { display: flex; flex-direction: column; gap: 8px; }
+.frigo-web .frigo-login-card label { margin-top: 3px; color: #303a52; font-size: 11px; font-weight: 650; }
+.frigo-web .frigo-login-card input {
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--login-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--login-ink);
+  font: inherit;
+  font-size: 12px;
+}
+.frigo-web .frigo-login-card input::placeholder { color: #a5afbf; }
+.frigo-web .frigo-login-card input:focus-visible, .frigo-web .frigo-login-card button:focus-visible, .frigo-web .frigo-login-brand:focus-visible {
+  outline: 2px solid #5b51f0;
+  outline-offset: 3px;
+}
+.frigo-login-card .frigo-login-forgot {
+  align-self: flex-end;
+  min-height: 20px;
+  margin: -3px 0 1px;
+  padding: 0;
+  border: 0;
+  color: var(--login-blue);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.frigo-login-help { margin: 0; color: #59657a; font-size: 11px; line-height: 1.5; }
+.frigo-login-card .frigo-web-error { margin: 2px 0; font-size: 11px; }
+.frigo-web .frigo-login-card form > button[type='submit'] {
+  min-height: 40px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 22px;
+  color: #fff;
+  background: var(--login-blue);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.frigo-web .frigo-login-card form > button[type='submit']:hover { background: #180fc2; }
+.frigo-web .frigo-login-card form > button[type='submit']:disabled { opacity: .55; cursor: wait; }
+@media (max-width: 700px) {
+  .frigo-login-page { grid-template-columns: 1fr; grid-template-rows: minmax(190px, 34svh) minmax(360px, 1fr); }
+  .frigo-login-brand-panel { justify-content: flex-start; padding: 32px 28px; }
+  .frigo-web .frigo-login-brand-content h1 { margin-top: 14px; font-size: clamp(24px, 7vw, 34px); }
+  .frigo-login-desktop-break { display: none; }
+  .frigo-login-form-panel { padding: 30px 22px 46px; }
+  .frigo-login-card { max-width: 390px; }
+}
+
 .frigo-web * { box-sizing: border-box; }
 .frigo-web-header {
   display: flex;
@@ -18,7 +122,6 @@
   border-bottom: 1px solid var(--frigo-line);
   background: #fff;
 }
-.frigo-web-brand { color: var(--frigo-ink); font-size: 26px; font-weight: 700; text-decoration: none; }
 .frigo-web-link { color: var(--frigo-green); font-size: 14px; font-weight: 600; }
 .frigo-web-main { display: grid; place-items: center; padding: 72px 24px; }
 .frigo-web-login { width: 100%; max-width: 420px; }
@@ -86,18 +189,6 @@
   background: var(--admin-navy);
 }
 .frigo-admin-brand { display: flex; align-items: center; gap: 9px; min-height: 36px; padding: 0 7px; }
-.frigo-admin-brand-mark {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border-radius: 9px;
-  color: #fff;
-  background: #102de0;
-  font-size: 19px;
-  font-weight: 800;
-}
-.frigo-admin-brand-name { color: #fff; font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
 .frigo-admin-role-chip {
   margin-left: auto;
   padding: 4px 8px;
