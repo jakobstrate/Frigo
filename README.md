@@ -17,17 +17,14 @@ The website runs at http://localhost:8082. `npm run web` is an alias for `npm ru
 
 ## Creating companies
 
-Company creation and company-admin invitations are handled by the Supabase Edge Function `create-company`. Apply `supabase/schema.sql` and then `supabase/auth_flow.sql` to the Supabase project, and deploy the function with the Supabase CLI:
+Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, and `supabase/update_company_details.sql` to the Supabase project in that order. Then deploy the Edge Functions:
 
 ```bash
 supabase functions deploy create-company
-```
-
-Company editing uses the `update-company` Edge Function and the `update_company_details` SQL function. Run `supabase/update_company_details.sql` in the Supabase SQL Editor, then deploy the Edge Function:
-
-```bash
 supabase functions deploy update-company
 ```
+
+When a company has no active administrator, the edit dialog can send an invitation to create its first one.
 
 The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
 

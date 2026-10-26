@@ -42,14 +42,16 @@ begin
     raise exception 'The company does not exist or has been deleted';
   end if;
 
-  if not exists (
-    select 1 from public.profiles
-    where id = p_admin_id
-      and company_id = p_company_id
-      and role = 'company_admin'
-      and status = 'active'
-  ) then
-    raise exception 'Select an active administrator belonging to this company';
+  if exists (select 1 from public.profiles where id = p_admin_id) then
+    if not exists (
+      select 1 from public.profiles
+      where id = p_admin_id
+        and company_id = p_company_id
+        and role = 'company_admin'
+        and status = 'active'
+    ) then
+      raise exception 'Select an active administrator belonging to this company';
+    end if;
   end if;
 
   for department in select value from jsonb_array_elements(p_departments)
@@ -105,9 +107,18 @@ begin
     end if;
   end loop;
 
-  update public.profiles
-  set display_name = trim(p_admin_name), email = lower(trim(p_admin_email))
-  where id = p_admin_id and company_id = p_company_id;
+  insert into public.profiles (id, display_name, email, role, status, company_id)
+  values (p_admin_id, trim(p_admin_name), lower(trim(p_admin_email)), 'company_admin', 'active', p_company_id)
+  on conflict (id) do update
+  set display_name = excluded.display_name,
+      email = excluded.email
+  where profiles.company_id = p_company_id
+    and profiles.role = 'company_admin'
+    and profiles.status = 'active';
+
+  if not found then
+    raise exception 'Select an active administrator belonging to this company';
+  end if;
 end;
 $$;
 

@@ -24,7 +24,7 @@ function EditCompanyModal({
 }: {
   company: CompanyDetails;
   onClose: () => void;
-  onSaved: (name: string) => Promise<void>;
+  onSaved: (name: string, invitedEmail?: string) => Promise<void>;
   onError: (message: string) => void;
 }) {
   const [name, setName] = useState(company.name);
@@ -60,7 +60,7 @@ function EditCompanyModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const updatedName = name.trim();
-    if (!updatedName || !adminId) return;
+    if (!updatedName || !adminName.trim() || !adminEmail.trim()) return;
 
     setIsSaving(true);
     setFormError('');
@@ -70,7 +70,7 @@ function EditCompanyModal({
           companyId: company.id,
           companyName: updatedName,
           departments,
-          adminId,
+          adminId: adminId || undefined,
           adminName: adminName.trim(),
           adminEmail: adminEmail.trim().toLowerCase(),
         },
@@ -87,7 +87,7 @@ function EditCompanyModal({
         throw new Error(message);
       }
 
-      await onSaved(updatedName);
+      await onSaved(updatedName, adminId ? undefined : adminEmail.trim().toLowerCase());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Virksomheden kunne ikke opdateres.';
       setFormError(message);
@@ -155,6 +155,11 @@ function EditCompanyModal({
           <p className="frigo-admin-modal-help">Afdelingsspecifikke kategorier og produktkoblinger følger afdelingen.</p>
 
           <p className="frigo-admin-form-section-label">Virksomhedsadmin</p>
+          {company.admins.length === 0 && (
+            <p className="frigo-admin-modal-help">
+              Der er ingen virksomhedsadmin endnu. Udfyld navn og e-mail for at sende en invitation.
+            </p>
+          )}
           {company.admins.length > 1 && (
             <>
               <label htmlFor="frigo-edit-admin">Vælg administrator</label>
@@ -188,17 +193,16 @@ function EditCompanyModal({
               />
             </div>
           </div>
-          <p className="frigo-admin-modal-help">Hvis e-mailadressen ændres, bliver den nye adresse administratorens login.</p>
-          {company.admins.length === 0 && (
-            <p className="frigo-admin-error" role="alert">Virksomheden har ingen aktive administratorer, der kan redigeres.</p>
+          {adminId && (
+            <p className="frigo-admin-modal-help">Hvis e-mailadressen ændres, bliver den nye adresse administratorens login.</p>
           )}
           {formError && <p className="frigo-admin-error" role="alert">Virksomheden kunne ikke opdateres: {formError}</p>}
           <div className="frigo-admin-modal-actions">
             <button className="frigo-admin-secondary-button" type="button" onClick={onClose} disabled={isSaving}>
               Annuller
             </button>
-            <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !name.trim() || !adminId || !adminName.trim() || !adminEmail.trim()}>
-              {isSaving ? 'Gemmer...' : 'Gem ændringer'}
+            <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !name.trim() || !adminName.trim() || !adminEmail.trim()}>
+              {isSaving ? 'Gemmer...' : adminId ? 'Gem ændringer' : 'Gem og send invitation'}
             </button>
           </div>
         </form>
@@ -259,7 +263,7 @@ function CreateCompanyModal({
   onError,
 }: {
   onClose: () => void;
-  onCreated: (companyName: string, adminEmail: string) => Promise<void>;
+  onCreated: (companyName: string, invitedEmail?: string) => Promise<void>;
   onError: (message: string) => void;
 }) {
   const [companyName, setCompanyName] = useState('');
@@ -284,6 +288,12 @@ function CreateCompanyModal({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const trimmedAdminName = adminName.trim();
+    const trimmedAdminEmail = adminEmail.trim();
+    if (Boolean(trimmedAdminName) !== Boolean(trimmedAdminEmail)) {
+      setFormError('Udfyld både navn og e-mail for at sende en invitation, eller lad begge felter være tomme.');
+      return;
+    }
     setIsSaving(true);
     setFormError('');
 
@@ -292,8 +302,8 @@ function CreateCompanyModal({
         body: {
           companyName: companyName.trim(),
           departments,
-          adminName: adminName.trim(),
-          adminEmail: adminEmail.trim(),
+          adminName: trimmedAdminName,
+          adminEmail: trimmedAdminEmail,
         },
       });
 
@@ -313,7 +323,7 @@ function CreateCompanyModal({
         throw new Error(message);
       }
 
-      await onCreated(companyName.trim(), adminEmail.trim());
+      await onCreated(companyName.trim(), trimmedAdminEmail || undefined);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Virksomheden kunne ikke oprettes.';
       setFormError(message);
@@ -388,33 +398,30 @@ function CreateCompanyModal({
           </div>
           <p className="frigo-admin-modal-help">Ingen afdelinger? Så samles alle brugere under hele virksomheden.</p>
 
-          <p className="frigo-admin-form-section-label">Virksomhedsadmin</p>
+          <p className="frigo-admin-form-section-label">Virksomhedsadmin (valgfrit)</p>
           <div className="frigo-admin-admin-fields">
             <div>
-              <label htmlFor="frigo-admin-name">Navn</label>
+              <label htmlFor="frigo-create-admin-name">Navn</label>
               <input
-                id="frigo-admin-name"
+                id="frigo-create-admin-name"
                 autoComplete="name"
-                required
                 value={adminName}
                 onChange={(event) => setAdminName(event.currentTarget.value)}
               />
             </div>
             <div>
-              <label htmlFor="frigo-admin-email">E-mail</label>
+              <label htmlFor="frigo-create-admin-email">E-mail</label>
               <input
-                id="frigo-admin-email"
+                id="frigo-create-admin-email"
                 type="email"
                 autoComplete="email"
-                required
                 value={adminEmail}
                 onChange={(event) => setAdminEmail(event.currentTarget.value)}
               />
             </div>
           </div>
           <p className="frigo-admin-modal-help">
-            Vi sender en invitation til administratorens e-mail. Flere administratorer kan tilføjes senere under
-            Brugere.
+            Hvis begge felter udfyldes, sender vi en invitation. Ellers kan en admin tilføjes senere ved at redigere virksomheden.
           </p>
 
           {formError && <p className="frigo-admin-error" role="alert">{formError}</p>}
@@ -427,8 +434,8 @@ function CreateCompanyModal({
             >
               Annuller
             </button>
-            <button className="frigo-admin-primary-button" type="submit" disabled={isSaving}>
-              {isSaving ? 'Opretter...' : 'Opret og send invitation'}
+            <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !companyName.trim()}>
+              {isSaving ? 'Opretter...' : 'Opret virksomhed'}
             </button>
           </div>
         </form>
@@ -502,17 +509,21 @@ export default function CompanyManagement() {
     void loadCompanies();
   }, [loadCompanies]);
 
-  async function handleCompanyCreated(companyName: string, adminEmail: string) {
+  async function handleCompanyCreated(companyName: string, invitedEmail?: string) {
     setIsModalOpen(false);
     setActionError('');
-    setSuccessMessage(`Virksomheden ${companyName} er oprettet. Invitationen er sendt til ${adminEmail}.`);
+    setSuccessMessage(invitedEmail
+      ? `Virksomheden ${companyName} er oprettet. Invitationen er sendt til ${invitedEmail}.`
+      : `Virksomheden ${companyName} er oprettet uden virksomhedsadmin.`);
     await loadCompanies();
   }
 
-  async function handleCompanyUpdated(name: string) {
+  async function handleCompanyUpdated(name: string, invitedEmail?: string) {
     setCompanyBeingEdited(null);
     setActionError('');
-    setSuccessMessage(`${name} er opdateret.`);
+    setSuccessMessage(invitedEmail
+      ? `${name} er opdateret. Invitationen er sendt til ${invitedEmail}.`
+      : `${name} er opdateret.`);
     await loadCompanies();
   }
 
@@ -578,7 +589,10 @@ export default function CompanyManagement() {
                   : <span className="frigo-admin-company-department">Hele virksomheden</span>}
               </div>
               <p className="frigo-admin-company-meta">
-                {company.companyAdmins} virksomhedsadmin · {company.employees} brugere
+                <span className={company.companyAdmins === 0 ? 'is-no-admin' : undefined}>
+                  {company.companyAdmins} virksomhedsadmin
+                </span>
+                {' · '}{company.employees} brugere
               </p>
               <div className="frigo-admin-company-actions">
                 <button

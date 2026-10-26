@@ -76,8 +76,9 @@ Deno.serve(async (request: Request) => {
   const adminEmail = typeof body.adminEmail === 'string' ? body.adminEmail.trim().toLowerCase() : '';
   const departments = body.departments;
 
-  if (typeof companyId !== 'number' || !Number.isSafeInteger(companyId) || !companyName || !adminId || !adminName
-    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+  if (typeof companyId !== 'number' || !Number.isSafeInteger(companyId) || !companyName || !adminName
+    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)
+    || (adminId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminId))) {
     return jsonResponse(400, { error: 'Enter a company name and valid administrator details.' });
   }
   if (!Array.isArray(departments) || departments.some((department) =>
@@ -89,45 +90,84 @@ Deno.serve(async (request: Request) => {
     return jsonResponse(400, { error: 'Departments must have a valid name and ID.' });
   }
 
-  const [{ data: company, error: companyError }, { data: adminProfile, error: adminProfileError }, { data: authAdmin, error: authAdminError }] = await Promise.all([
-    supabaseAdmin.from('companies').select('id, status').eq('id', companyId).maybeSingle(),
-    supabaseAdmin.from('profiles').select('id, email, role, status').eq('id', adminId).eq('company_id', companyId).maybeSingle(),
-    supabaseAdmin.auth.admin.getUserById(adminId),
-  ]);
-
-  if (companyError || adminProfileError || authAdminError) {
-    return jsonResponse(500, { error: 'Could not load the company or administrator details.' });
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('id, status')
+    .eq('id', companyId)
+    .maybeSingle();
+  if (companyError) {
+    return jsonResponse(500, { error: `Could not load the company: ${companyError.message}` });
   }
   if (!company || company.status === 'deleted') {
     return jsonResponse(404, { error: 'The company does not exist or has been deleted.' });
   }
-  if (!adminProfile || adminProfile.role !== 'company_admin' || adminProfile.status !== 'active' || !authAdmin.user?.email) {
-    return jsonResponse(400, { error: 'Select an active company administrator.' });
-  }
 
-  const previousEmail = authAdmin.user.email;
-  const emailChanged = previousEmail.toLowerCase() !== adminEmail;
-  if (emailChanged) {
-    const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(adminId, {
-      email: adminEmail,
-      email_confirm: true,
-    });
-    if (emailError) {
-      return jsonResponse(400, { error: `Could not update the administrator login email: ${emailError.message}` });
+  let effectiveAdminId = adminId;
+  let previousEmail: string | null = null;
+  let invitedAdminId: string | null = null;
+
+  if (adminId) {
+    const [{ data: adminProfile, error: adminProfileError }, { data: authAdmin, error: authAdminError }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('id, role, status').eq('id', adminId).eq('company_id', companyId).maybeSingle(),
+      supabaseAdmin.auth.admin.getUserById(adminId),
+    ]);
+    if (adminProfileError || authAdminError) {
+      return jsonResponse(500, { error: 'Could not load the company administrator details.' });
     }
+    if (!adminProfile || adminProfile.role !== 'company_admin' || adminProfile.status !== 'active' || !authAdmin.user?.email) {
+      return jsonResponse(400, { error: 'Select an active company administrator.' });
+    }
+
+    previousEmail = authAdmin.user.email;
+    if (previousEmail.toLowerCase() !== adminEmail) {
+      const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(adminId, {
+        email: adminEmail,
+        email_confirm: true,
+      });
+      if (emailError) {
+        return jsonResponse(400, { error: `Could not update the administrator login email: ${emailError.message}` });
+      }
+    }
+  } else {
+    const requestOrigin = request.headers.get('origin');
+    const inviteRedirectUrl = Deno.env.get('INVITE_REDIRECT_URL')
+      ?? (requestOrigin ? new URL('/invite', requestOrigin).toString() : undefined);
+    const inviteOptions: {
+      data: { display_name: string; frigo_invitation_role: string };
+      redirectTo?: string;
+    } = {
+      data: { display_name: adminName, frigo_invitation_role: 'company_admin' },
+    };
+    if (inviteRedirectUrl) inviteOptions.redirectTo = inviteRedirectUrl;
+
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin
+      .inviteUserByEmail(adminEmail, inviteOptions);
+    if (inviteError) {
+      return jsonResponse(400, { error: `Could not send the administrator invitation: ${inviteError.message}` });
+    }
+    if (!inviteData.user) {
+      return jsonResponse(500, { error: 'The invitation was sent without returning an administrator account.' });
+    }
+    effectiveAdminId = inviteData.user.id;
+    invitedAdminId = inviteData.user.id;
   }
 
   const { error: updateError } = await supabaseAdmin.rpc('update_company_details', {
     p_company_id: companyId,
     p_company_name: companyName,
     p_departments: departments,
-    p_admin_id: adminId,
+    p_admin_id: effectiveAdminId,
     p_admin_name: adminName,
     p_admin_email: adminEmail,
   });
 
   if (updateError) {
-    if (emailChanged) {
+    if (invitedAdminId) {
+      const { error: cleanupError } = await supabaseAdmin.auth.admin.deleteUser(invitedAdminId);
+      const cleanupMessage = cleanupError ? ` The invitation could not be revoked: ${cleanupError.message}` : '';
+      return jsonResponse(400, { error: `Could not update the company: ${updateError.message}.${cleanupMessage}` });
+    }
+    if (previousEmail && previousEmail.toLowerCase() !== adminEmail) {
       const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(adminId, {
         email: previousEmail,
         email_confirm: true,

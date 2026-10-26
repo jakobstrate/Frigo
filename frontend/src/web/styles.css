@@ -331,6 +331,7 @@
 .frigo-admin-company-departments { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
 .frigo-admin-company-department { padding: 5px 9px; border-radius: 14px; color: #303d87; background: #edf0ff; font-size: 10px; }
 .frigo-admin-company-meta { margin: 0; color: var(--admin-muted); font-size: 11px; }
+.frigo-admin-company-meta .is-no-admin { color: #b54037; font-weight: 700; }
 .frigo-admin-company-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .frigo-admin-company-actions .frigo-admin-secondary-button,
 .frigo-admin-delete-button { min-height: 34px; padding: 0 13px; }
