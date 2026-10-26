@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Camera, Check, ChevronDown, ChevronLeft } from 'lucide-react-native';
+import { Camera, Check, ChevronDown, ChevronLeft, Mail } from 'lucide-react-native';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -65,10 +65,44 @@ export default function SignupScreen() {
         <View style={styles.page}>
           {requestSent ? (
             <View style={styles.successBlock}>
-              <Text style={styles.title}>Anmodning sendt</Text>
-              <Text style={styles.subtitle}>Din demo-anmodning til {company} er registreret. Der er ikke oprettet en rigtig konto.</Text>
-              <Pressable accessibilityRole="button" onPress={() => router.replace('/')} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-                <Text style={styles.primaryButtonText}>Tilbage til log ind</Text>
+              <View style={styles.confirmationContent}>
+                <View style={styles.mailIconCircle}>
+                  <Mail color={colors.blue} size={42} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.confirmationTitle}>Anmodning sendt</Text>
+                <Text style={styles.confirmationSubtitle}>
+                  Din demo-anmodning til {company} er registreret. Ingen mail er sendt, og ingen rigtig konto er oprettet.
+                </Text>
+
+                <View style={styles.stepsCard}>
+                  <View style={styles.stepRow}>
+                    <View style={styles.completeStepMarker}>
+                      <Check color={colors.white} size={18} strokeWidth={3} />
+                    </View>
+                    <Text style={styles.completeStepText}>Anmodning registreret (demo)</Text>
+                  </View>
+
+                  <View style={styles.stepRow}>
+                    <View style={styles.currentStepMarker}>
+                      <Text style={styles.currentStepNumber}>2</Text>
+                    </View>
+                    <View style={styles.stepCopy}>
+                      <Text style={styles.currentStepText}>Admin godkender</Text>
+                      <Text style={styles.stepHint}>Venter</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.stepRow}>
+                    <View style={styles.upcomingStepMarker}>
+                      <Text style={styles.upcomingStepNumber}>3</Text>
+                    </View>
+                    <Text style={styles.upcomingStepText}>Du får en mail og kan logge ind</Text>
+                  </View>
+                </View>
+              </View>
+
+              <Pressable accessibilityRole="button" onPress={() => router.replace('/')} style={({ pressed }) => [styles.confirmationButton, pressed && styles.pressed]}>
+                <Text style={styles.confirmationButtonText}>Tilbage til log ind</Text>
               </Pressable>
             </View>
           ) : (
@@ -166,7 +200,25 @@ const styles = StyleSheet.create({
   backButton: { height: 38, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5 },
   backText: { color: colors.blue, fontSize: 15, fontWeight: '600' },
   headingBlock: { gap: 8, marginTop: 31, marginBottom: 16 },
-  successBlock: { flex: 1, justifyContent: 'center', gap: 16 },
+  successBlock: { flex: 1, justifyContent: 'space-between', paddingTop: 72, paddingBottom: 24 },
+  confirmationContent: { alignItems: 'center', gap: 18 },
+  mailIconCircle: { width: 112, height: 112, borderRadius: 56, backgroundColor: '#E2E7FF', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  confirmationTitle: { color: colors.ink, fontSize: 30, lineHeight: 38, fontWeight: '700', textAlign: 'center' },
+  confirmationSubtitle: { color: colors.muted, fontSize: 15, lineHeight: 23, textAlign: 'center', marginBottom: 8 },
+  stepsCard: { width: '100%', gap: 16, paddingHorizontal: 20, paddingVertical: 20, borderRadius: 18, backgroundColor: colors.white },
+  stepRow: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  completeStepMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#16834D', alignItems: 'center', justifyContent: 'center' },
+  currentStepMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFF0E5', alignItems: 'center', justifyContent: 'center' },
+  currentStepNumber: { color: '#A64420', fontSize: 15, fontWeight: '700' },
+  upcomingStepMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#E9EDF2', alignItems: 'center', justifyContent: 'center' },
+  upcomingStepNumber: { color: '#687487', fontSize: 15, fontWeight: '700' },
+  stepCopy: { flex: 1, gap: 2 },
+  completeStepText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  currentStepText: { color: colors.ink, fontSize: 14, lineHeight: 19, fontWeight: '600' },
+  stepHint: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+  upcomingStepText: { flex: 1, color: colors.muted, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  confirmationButton: { minHeight: 58, borderWidth: 1, borderColor: colors.line, borderRadius: 30, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  confirmationButtonText: { color: colors.blue, fontSize: 17, fontWeight: '600' },
   title: { color: colors.ink, fontSize: 32, lineHeight: 40, fontWeight: '700' },
   subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22, flexShrink: 1 },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 10 },
