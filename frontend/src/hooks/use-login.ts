@@ -7,12 +7,14 @@ export function useLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleLogin() {
     if (isLoading || !email.trim() || !password) return;
 
     setError('');
+    setNotice('');
     setIsLoading(true);
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -21,7 +23,16 @@ export function useLogin() {
       });
 
       if (signInError) {
-        setError(signInError.message);
+        const message = signInError.message.toLowerCase();
+        if (message.includes('invalid login credentials')) {
+          setError('E-mail eller adgangskode er forkert.');
+        } else if (message.includes('email not confirmed')) {
+          setError('Bekræft din e-mail, før du logger ind.');
+        } else if (message.includes('too many requests')) {
+          setError('Der er for mange loginforsøg. Vent lidt, og prøv igen.');
+        } else {
+          setError('Det lykkedes ikke at logge ind. Prøv igen.');
+        }
         return;
       }
 
@@ -32,24 +43,34 @@ export function useLogin() {
         .maybeSingle();
 
       if (profileError || !profile) {
-        setError('Your account is not linked to a Frigo profile yet. Please contact your administrator.');
+        setError('Din konto er endnu ikke knyttet til en Frigo-profil. Kontakt din administrator.');
         await supabase.auth.signOut();
         return;
       }
 
       if (profile.status !== 'active') {
-        router.replace('/pending' as Href);
-      } else if (profile.role === 'super_admin' || profile.role === 'company_admin') {
+        if (profile.status === 'pending') {
+          setNotice('Din konto afventer godkendelse fra din virksomhedsadministrator.');
+        } else if (profile.status === 'rejected') {
+          setError('Din anmodning om adgang er blevet afvist. Kontakt din virksomhedsadministrator.');
+        } else {
+          setError('Din konto er endnu ikke aktiv. Kontakt din virksomhedsadministrator.');
+        }
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (profile.role === 'super_admin' || profile.role === 'company_admin') {
         router.replace('/admin-review' as Href);
       } else {
         router.replace('/explore');
       }
     } catch {
-      setError('Unable to sign in. Please try again.');
+      setError('Det lykkedes ikke at logge ind. Prøv igen.');
     } finally {
       setIsLoading(false);
     }
   }
 
-  return { email, setEmail, password, setPassword, error, isLoading, handleLogin };
+  return { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin };
 }

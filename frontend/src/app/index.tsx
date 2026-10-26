@@ -1,83 +1,99 @@
 import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
 import { useLogin } from '@/frontend/src/hooks/use-login';
-import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 const colors = {
-  background: '#F5F7F2',
-  ink: '#19251F',
-  muted: '#69766E',
-  line: '#DCE4DB',
-  green: '#247451',
+  background: '#1028D8',
+  ink: '#1028D8',
   white: '#FFFFFF',
-  error: '#A33D36',
+  error: '#8F1D25',
 };
 
 export default function LoginScreen() {
-  const { email, setEmail, password, setPassword, error, isLoading, handleLogin } = useLogin();
+  const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin();
+  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.page}>
-          <View style={styles.brandRow}>
-            <FrigoLogo size={34} />
-          </View>
-
-          <View style={styles.headingBlock}>
-            <Text style={styles.eyebrow}>WELCOME BACK</Text>
-            <Text style={styles.title}>Sign in to your account</Text>
-            <Text style={styles.subtitle}>Your company shop, all in one place.</Text>
+          <View style={styles.brand}>
+            <FrigoLogoIcon size={112} />
+            <Text style={styles.wordmark}>FriGo</Text>
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>E-mail</Text>
             <TextInput
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
               onChangeText={setEmail}
-              placeholder="you@company.com"
-              placeholderTextColor="#8A958D"
+              placeholder="navn@virksomhed.dk"
+              placeholderTextColor="#929FB4"
               style={styles.input}
               value={email}
             />
 
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>Adgangskode</Text>
             <TextInput
               autoCapitalize="none"
               autoComplete="current-password"
               onChangeText={setPassword}
               onSubmitEditing={handleLogin}
-              placeholder="Enter your password"
-              placeholderTextColor="#8A958D"
+              placeholder=""
+              placeholderTextColor="#929FB4"
               secureTextEntry
               style={styles.input}
               value={password}
             />
 
-            {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+            {(!!error || !!notice) && (
+              <View style={[styles.statusBar, error ? styles.errorBar : styles.noticeBar]}>
+                <Text
+                  accessibilityLiveRegion={error ? 'assertive' : 'polite'}
+                  accessibilityRole={error ? 'alert' : 'text'}
+                  style={[styles.statusText, error ? styles.errorText : styles.noticeText]}>
+                  {error || notice}
+                </Text>
+              </View>
+            )}
 
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowPasswordHelp((shown) => !shown)}
+              style={styles.forgotButton}>
+              <Text style={styles.forgotText}>Glemt adgangskode?</Text>
+            </Pressable>
+            {showPasswordHelp && (
+              <Text accessibilityRole="text" style={styles.helpText}>
+                Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
               disabled={isLoading || !email.trim() || !password}
               onPress={handleLogin}
               style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (isLoading || !email.trim() || !password) && styles.disabled]}>
-              {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Sign in</Text>}
+              {isLoading ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.primaryButtonText}>Log ind</Text>}
             </Pressable>
 
-            <View style={styles.dividerRow}><View style={styles.divider} /><Text style={styles.orText}>NEW TO FRIGO?</Text><View style={styles.divider} /></View>
-
-            <Pressable accessibilityRole="button" onPress={() => router.push('/signup' as Href)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-              <Text style={styles.secondaryButtonText}>Create an account</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/signup' as Href)}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+              <Text style={styles.secondaryButtonText}>Ny her? Opret profil</Text>
             </Pressable>
           </View>
-
-          <Text style={styles.footer}>By continuing, you agree to your company&apos;s Frigo access policies.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -86,25 +102,27 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1, justifyContent: 'center' },
-  page: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 36 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 56 },
-  headingBlock: { gap: 8, marginBottom: 30 },
-  eyebrow: { color: colors.green, fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },
-  title: { color: colors.ink, fontSize: 29, fontWeight: '700' },
-  subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22 },
+  scrollContent: { flexGrow: 1 },
+  page: { flexGrow: 1, width: '100%', maxWidth: 500, alignSelf: 'center', justifyContent: 'space-between', paddingHorizontal: 28, paddingTop: 44, paddingBottom: 24, gap: 40 },
+  brand: { alignItems: 'center', gap: 14 },
+  wordmark: { color: colors.white, fontSize: 52, fontWeight: '700' },
   form: { gap: 12 },
-  label: { color: colors.ink, fontSize: 13, fontWeight: '600', marginTop: 6 },
-  input: { height: 52, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 8, paddingHorizontal: 15, color: colors.ink, fontSize: 15 },
-  primaryButton: { height: 52, borderRadius: 8, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  primaryButtonText: { color: colors.white, fontSize: 15, fontWeight: '700' },
-  secondaryButton: { height: 52, borderRadius: 8, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  secondaryButtonText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 12 },
-  divider: { height: 1, backgroundColor: colors.line, flex: 1 },
-  orText: { color: colors.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  error: { color: colors.error, fontSize: 13, lineHeight: 19 },
-  footer: { color: colors.muted, textAlign: 'center', fontSize: 12, lineHeight: 18, marginTop: 30 },
+  label: { color: colors.white, fontSize: 15, fontWeight: '600', marginTop: 4 },
+  input: { height: 56, borderWidth: 1, borderColor: colors.white, backgroundColor: colors.white, borderRadius: 30, paddingHorizontal: 20, color: '#17213D', fontSize: 16 },
+  statusBar: { minHeight: 42, justifyContent: 'center', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  errorBar: { backgroundColor: '#FFE7E6' },
+  noticeBar: { backgroundColor: '#E8EDFF' },
+  statusText: { fontSize: 13, lineHeight: 19, fontWeight: '500' },
+  errorText: { color: colors.error },
+  noticeText: { color: '#192A8C' },
+  forgotButton: { alignSelf: 'flex-end', minHeight: 34, justifyContent: 'center', marginTop: 2 },
+  forgotText: { color: colors.white, fontSize: 14, fontWeight: '600' },
+  helpText: { color: '#E3E8FF', fontSize: 13, lineHeight: 19, textAlign: 'right' },
+  actions: { gap: 12 },
+  primaryButton: { height: 58, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: colors.ink, fontSize: 17, fontWeight: '700' },
+  secondaryButton: { height: 58, borderRadius: 32, borderWidth: 2, borderColor: '#A9B8FF', backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  secondaryButtonText: { color: colors.white, fontSize: 16, fontWeight: '600', textAlign: 'center' },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.52 },
 });

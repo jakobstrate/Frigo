@@ -35,7 +35,7 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <FrigoLogoIcon size={88} />;
+  const image = <FrigoLogoIcon size={140} />;
 
   return animate ? (
     <Animated.View
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: '#EDF2F6',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
