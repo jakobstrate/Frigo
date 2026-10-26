@@ -8,7 +8,8 @@
     "scheme": "frigo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.nannaluie.Frigo"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,9 +34,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#EDF2F6",
+          "image": "./assets/images/frigo-mark.png",
+          "imageWidth": 140
         }
       ],
       "expo-sqlite"
