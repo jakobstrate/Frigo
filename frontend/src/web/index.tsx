@@ -1,11 +1,11 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
 
-import { useLogin } from '@/frontend/src/hooks/use-login';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
+import { useLogin } from '@/frontend/src/hooks/use-login';
 
 export default function WebLoginPage() {
-  const { email, setEmail, password, setPassword, error, isLoading, handleLogin } = useLogin();
+  const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin();
   const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   return (
@@ -49,6 +49,8 @@ export default function WebLoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            {error && <p className="frigo-web-error" role="alert">{error}</p>}
+            {notice && <p className="frigo-web-notice" role="status">{notice}</p>}
             <button
               className="frigo-login-forgot"
               type="button"
@@ -61,7 +63,6 @@ export default function WebLoginPage() {
                 Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
               </p>
             )}
-            {error && <p className="frigo-web-error" role="alert">{error}</p>}
             <button type="submit" disabled={isLoading || !email.trim() || !password}>
               {isLoading ? 'Logger ind...' : 'Log ind'}
             </button>
