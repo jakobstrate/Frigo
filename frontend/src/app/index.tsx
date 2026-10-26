@@ -1,6 +1,5 @@
 import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,7 +15,6 @@ const colors = {
 
 export default function LoginScreen() {
   const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin();
-  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -67,15 +65,10 @@ export default function LoginScreen() {
 
             <Pressable
               accessibilityRole="button"
-              onPress={() => setShowPasswordHelp((shown) => !shown)}
+              onPress={() => router.push('/forgot-password' as Href)}
               style={styles.forgotButton}>
               <Text style={styles.forgotText}>Glemt adgangskode?</Text>
             </Pressable>
-            {showPasswordHelp && (
-              <Text accessibilityRole="text" style={styles.helpText}>
-                Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
-              </Text>
-            )}
           </View>
 
           <View style={styles.actions}>
@@ -117,7 +110,6 @@ const styles = StyleSheet.create({
   noticeText: { color: '#192A8C' },
   forgotButton: { alignSelf: 'flex-end', minHeight: 34, justifyContent: 'center', marginTop: 2 },
   forgotText: { color: colors.white, fontSize: 14, fontWeight: '600' },
-  helpText: { color: '#E3E8FF', fontSize: 13, lineHeight: 19, textAlign: 'right' },
   actions: { gap: 12 },
   primaryButton: { height: 58, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: colors.ink, fontSize: 17, fontWeight: '700' },
