@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
+import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 const colors = {
   background: '#F5F7F2',
@@ -207,8 +208,7 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
           {!embedded && (
             <View style={styles.topBar}>
               <View style={styles.brandRow}>
-                <View style={styles.brandMark}><Text style={styles.brandMarkText}>F</Text></View>
-                <Text style={styles.brand}>Frigo</Text>
+                <FrigoLogo size={34} />
               </View>
               <Pressable accessibilityRole="button" onPress={handleSignOut} hitSlop={10}>
                 <Text style={styles.signOut}>Sign out</Text>
@@ -324,9 +324,6 @@ const styles = StyleSheet.create({
   page: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 24 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 48 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: colors.white, fontSize: 20, fontWeight: '800' },
-  brand: { color: colors.ink, fontSize: 21, fontWeight: '700' },
   signOut: { color: colors.muted, fontSize: 13, fontWeight: '600', padding: 8 },
   heading: { gap: 8, marginBottom: 28 },
   eyebrow: { color: colors.green, fontSize: 11, fontWeight: '800', letterSpacing: 1.3 },

@@ -2,8 +2,10 @@ import { Link, router, useLocalSearchParams, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
+import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
+import CompanyManagement from '@/frontend/src/web/company-management';
 
 type AdminProfile = {
   id: string;
@@ -103,6 +105,10 @@ function AdminPageContent({
         </section>
       </>
     );
+  }
+
+  if (page === 'companies') {
+    return <CompanyManagement />;
   }
 
   return (
@@ -247,8 +253,7 @@ export default function AdminDashboard() {
     <div className="frigo-admin">
       <aside className="frigo-admin-sidebar">
         <div className="frigo-admin-brand">
-          <span className="frigo-admin-brand-mark" aria-hidden="true">b</span>
-          <span className="frigo-admin-brand-name">FriGo</span>
+          <FrigoLogo size={27} tone="light" />
           <span className="frigo-admin-role-chip">{roleLabel}</span>
         </div>
         <nav className="frigo-admin-navigation" aria-label="Hovedmenu">

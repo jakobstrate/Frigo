@@ -15,6 +15,21 @@ The mobile development server uses port 8081. Scan its QR code with a compatible
 
 The website runs at http://localhost:8082. `npm run web` is an alias for `npm run start:web`. Stopping one server does not stop the other.
 
+## Creating companies
+
+Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, and `supabase/update_company_details.sql` to the Supabase project in that order. Then deploy the Edge Functions:
+
+```bash
+supabase functions deploy create-company
+supabase functions deploy update-company
+```
+
+When a company has no active administrator, the edit dialog can send an invitation to create its first one.
+
+The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
+
+The function uses Supabase's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets, which are available to deployed functions by default. Invitation links open the app's `/invite` page, where the administrator sets a password. Add the hosted app's `/invite` URL (and any local development invite URL) to Supabase Auth's allowed redirect URLs. Set the `INVITE_REDIRECT_URL` function secret if the invite should always return to a specific app URL.
+
 ## Separate platform screens
 
 The frontend is organized by platform:
@@ -33,6 +48,8 @@ frontend/src/
 Edit `frontend/src/web/index.tsx` for the browser sign-in page and `frontend/src/app/index.tsx` for mobile sign-in. Each platform also has its own `layout.tsx`. The web sign-in page has no create-account link; mobile keeps it.
 
 Signup, pending, explore, and admin review route directly to `shared/screens`, without intermediate files in `app` or `web`. Changes in `shared/screens` affect both platforms.
+
+Use `frontend/src/components/frigo-logo.tsx` for the Frigo mark and wordmark anywhere new branding is needed. It renders the shared vector icon on web and native.
 
 Create platform-specific files only when a screen actually differs. For example, to give admin review a different web UI, add `web/admin-review.tsx` with that implementation and `routes/admin-review.web.tsx` re-exporting it. The existing `routes/admin-review.tsx` continues to use the shared screen on mobile. For a mobile-only UI, add `app/admin-review.tsx` and point the regular route entry to it, keeping a web route entry pointing to the shared or web implementation.
 

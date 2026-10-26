@@ -52,6 +52,10 @@ declare
   requested_admin_email text;
   assigned_company_id bigint;
 begin
+  if new.raw_user_meta_data ->> 'frigo_invitation_role' = 'company_admin' then
+    return new;
+  end if;
+
   requested_name := nullif(trim(new.raw_user_meta_data ->> 'display_name'), '');
   requested_admin_email := lower(trim(coalesce(new.raw_user_meta_data ->> 'approver_email', '')));
 
@@ -112,6 +116,65 @@ drop trigger if exists on_auth_user_created_employee_request on auth.users;
 create trigger on_auth_user_created_employee_request
 after insert on auth.users
 for each row execute function public.create_employee_request_for_auth_user();
+
+drop function if exists public.create_company_with_admin(text, text[], uuid, text, text);
+drop function if exists public.create_company_without_admin(text, text[]);
+
+create or replace function public.create_company_without_admin(
+  p_company_name text,
+  p_department_names text[],
+  p_admin_id uuid default null,
+  p_admin_name text default null,
+  p_admin_email text default null
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  created_company_id bigint;
+begin
+  if nullif(trim(p_company_name), '') is null then
+    raise exception 'A company name is required';
+  end if;
+
+  if (p_admin_id is null) <> (nullif(trim(p_admin_name), '') is null)
+    or (p_admin_id is null) <> (nullif(trim(p_admin_email), '') is null) then
+    raise exception 'Administrator ID, name, and email must all be provided together';
+  end if;
+
+  insert into public.companies (name)
+  values (trim(p_company_name))
+  returning id into created_company_id;
+
+  insert into public.departments (company_id, name)
+  select created_company_id, department.name
+  from (
+    select distinct on (lower(trim(candidate.name))) trim(candidate.name) as name
+    from unnest(coalesce(p_department_names, array[]::text[])) as candidate(name)
+    where nullif(trim(candidate.name), '') is not null
+    order by lower(trim(candidate.name)), trim(candidate.name)
+  ) as department;
+
+  if p_admin_id is not null then
+    insert into public.profiles (id, display_name, email, role, status, company_id)
+    values (
+      p_admin_id,
+      trim(p_admin_name),
+      lower(trim(p_admin_email)),
+      'company_admin',
+      'active',
+      created_company_id
+    );
+  end if;
+
+  return created_company_id;
+end;
+$$;
+
+revoke all on function public.create_company_without_admin(text, text[], uuid, text, text) from public, anon, authenticated;
+grant execute on function public.create_company_without_admin(text, text[], uuid, text, text) to service_role;
 
 create or replace function public.review_employee_request(
   p_request_id bigint,

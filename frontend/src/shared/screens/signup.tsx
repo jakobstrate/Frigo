@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
+import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 const colors = {
   background: '#F5F7F2',
@@ -59,8 +60,7 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.page}>
           <View style={styles.brandRow}>
-            <View style={styles.brandMark}><Text style={styles.brandMarkText}>F</Text></View>
-            <Text style={styles.brand}>Frigo</Text>
+            <FrigoLogo size={34} />
           </View>
 
           {confirmationRequired ? (
@@ -124,9 +124,6 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, justifyContent: 'center' },
   page: { width: '100%', maxWidth: 460, alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 30 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 32 },
-  brandMark: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: colors.white, fontSize: 20, fontWeight: '800' },
-  brand: { color: colors.ink, fontSize: 21, fontWeight: '700' },
   headingBlock: { gap: 8, marginBottom: 20 },
   successBlock: { gap: 14 },
   eyebrow: { color: colors.green, fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },

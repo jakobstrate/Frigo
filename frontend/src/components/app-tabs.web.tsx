@@ -14,6 +14,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Colors, MaxContentWidth, Spacing } from '@/frontend/src/constants/theme';
+import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 export default function AppTabs() {
   return (
@@ -54,9 +55,7 @@ export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Frigo
-        </ThemedText>
+        <FrigoLogo size={25} style={{ marginRight: 'auto' }} />
 
         {props.children}
 
@@ -93,9 +92,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
-  },
-  brandText: {
-    marginRight: 'auto',
   },
   pressed: {
     opacity: 0.7,
