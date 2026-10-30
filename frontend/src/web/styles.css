@@ -415,3 +415,154 @@
 @media (max-width: 460px) {
   .frigo-admin-admin-fields { grid-template-columns: 1fr; }
 }
+
+.frigo-department-description { margin: -18px 0 20px; color: var(--admin-muted); font-size: 12px; line-height: 1.5; }
+.frigo-department-company-selector {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #e8eaff;
+}
+.frigo-department-company-selector label { color: #182552; font-size: 11px; font-weight: 700; }
+.frigo-department-company-selector select, .frigo-department-company-locked {
+  min-width: 170px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #dce1ed;
+  border-radius: 8px;
+  color: #18213d;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+.frigo-department-company-locked { display: inline-flex; align-items: center; font-weight: 600; }
+.frigo-department-company-selector select:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
+.frigo-department-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgb(24 33 61 / 3%);
+}
+.frigo-department-create > label { margin: 0; color: #182552; font-size: 11px; font-weight: 700; }
+.frigo-department-create-fields { display: flex; gap: 8px; }
+.frigo-department-create-fields input {
+  min-width: 0;
+  min-height: 42px;
+  flex: 1;
+  padding: 0 12px;
+  border: 1px solid #dce1ed;
+  border-radius: 9px;
+  color: #18213d;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+.frigo-department-create-fields input::placeholder { color: #99a2b4; }
+.frigo-department-create-fields input:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
+.frigo-department-create-fields .frigo-admin-primary-button { min-height: 42px; margin: 0; padding: 0 17px; }
+.frigo-department-create-fields input:disabled { background: #f5f6f9; }
+.frigo-department-section-header { margin: 22px 0 14px; }
+.frigo-department-list { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
+.frigo-department-card {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 16px;
+}
+.frigo-department-card + .frigo-department-card { border-top: 1px solid #edf0f5; }
+.frigo-department-card-details { min-width: 130px; }
+.frigo-department-card-details h3 { margin: 0 0 5px; color: #182552; font-size: 13px; }
+.frigo-department-card-details p { margin: 0; color: var(--admin-muted); font-size: 10px; }
+.frigo-department-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.frigo-department-mode { display: inline-flex; padding: 3px; border: 1px solid #e2e6ee; border-radius: 22px; background: #f0f2f6; }
+.frigo-department-mode button {
+  min-height: 30px;
+  margin: 0;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 18px;
+  color: #505b73;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.frigo-department-mode button.is-selected { color: #182552; background: #fff; box-shadow: 0 1px 4px rgb(24 33 61 / 10%); }
+.frigo-department-mode button:focus-visible, .frigo-department-select-products:focus-visible,
+.frigo-department-icon-button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
+.frigo-department-mode button:disabled { opacity: .55; cursor: wait; }
+.frigo-department-select-products {
+  min-height: 34px;
+  margin: 0;
+  padding: 0 11px;
+  border: 1px solid #102de0;
+  border-radius: 18px;
+  color: #102de0;
+  background: #fff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.frigo-department-icon-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #e1e5ed;
+  border-radius: 50%;
+  color: #283453;
+  background: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+.frigo-department-icon-button.is-danger { border-color: #f3dddc; color: #ae3631; background: #fff4f3; }
+.frigo-department-icon-button:disabled, .frigo-department-select-products:disabled { opacity: .55; cursor: wait; }
+.frigo-department-products-modal { width: min(100%, 470px); }
+.frigo-department-products-modal .frigo-admin-modal-header { margin-bottom: 8px; }
+.frigo-department-products-help { margin: 0 0 12px; color: var(--admin-muted); font-size: 11px; line-height: 1.5; }
+.frigo-department-product-list { max-height: min(52vh, 440px); overflow-y: auto; border-top: 1px solid #edf0f5; }
+.frigo-department-product-option {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid #edf0f5;
+  color: #18213d;
+  font-size: 11px;
+  cursor: pointer;
+}
+.frigo-department-product-option input { width: 16px; height: 16px; flex: 0 0 auto; accent-color: #102de0; }
+.frigo-department-product-option > span:nth-of-type(1) { flex: 1; }
+.frigo-department-product-category { color: var(--admin-muted); font-size: 10px; }
+.frigo-department-products-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; }
+.frigo-department-products-footer > span { color: #515d75; font-size: 10px; white-space: nowrap; }
+.frigo-department-products-footer .frigo-admin-modal-actions { margin: 0; }
+@media (max-width: 760px) {
+  .frigo-department-card { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .frigo-department-controls { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+}
+@media (max-width: 460px) {
+  .frigo-department-company-selector { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .frigo-department-company-selector select, .frigo-department-company-locked { width: 100%; }
+  .frigo-department-create-fields { align-items: stretch; flex-direction: column; }
+  .frigo-department-create-fields .frigo-admin-primary-button { align-self: flex-end; }
+  .frigo-department-mode button { padding: 0 8px; font-size: 9px; }
+  .frigo-department-products-footer { align-items: flex-start; flex-direction: column; }
+  .frigo-department-products-footer .frigo-admin-modal-actions { width: 100%; justify-content: flex-end; }
+}

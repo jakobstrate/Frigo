@@ -17,7 +17,7 @@ The website runs at http://localhost:8082. `npm run web` is an alias for `npm ru
 
 ## Creating companies
 
-Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, and `supabase/update_company_details.sql` to the Supabase project in that order. Then deploy the Edge Functions:
+Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, `supabase/update_company_details.sql`, and `supabase/manage_department_products.sql` to the Supabase project in that order. Then deploy the Edge Functions:
 
 ```bash
 supabase functions deploy create-company
@@ -27,6 +27,10 @@ supabase functions deploy update-company
 When a company has no active administrator, the edit dialog can send an invitation to create its first one.
 
 The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
+
+The department page lets Superadmins select a company and manage its departments, while company admins are restricted to their own company. Department product selections are saved through `set_department_products` so the product list is replaced atomically.
+
+For an existing Supabase project, apply `supabase/manage_department_products.sql` to add the department product-selection function.
 
 The function uses Supabase's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets, which are available to deployed functions by default. Invitation links open the app's `/invite` page, where the administrator sets a password. Add the hosted app's `/invite` URL (and any local development invite URL) to Supabase Auth's allowed redirect URLs. Set the `INVITE_REDIRECT_URL` function secret if the invite should always return to a specific app URL.
 

@@ -6,6 +6,7 @@ import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
 import CompanyManagement from '@/frontend/src/web/company-management';
+import DepartmentManagement from '@/frontend/src/web/department-management';
 
 type AdminProfile = {
   id: string;
@@ -109,6 +110,16 @@ function AdminPageContent({
 
   if (page === 'companies') {
     return <CompanyManagement />;
+  }
+
+  if (page === 'departments') {
+    return (
+      <DepartmentManagement
+        role={profile.role}
+        companyId={profile.company_id}
+        companyName={companyName}
+      />
+    );
   }
 
   return (
