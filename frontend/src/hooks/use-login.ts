@@ -3,7 +3,15 @@ import { useState } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
 
-export function useLogin({ allowEmployeeAccess = true }: { allowEmployeeAccess?: boolean } = {}) {
+type LoginSuccessHandler = (destination: Href) => void | Promise<void>;
+
+type LoginConfiguration = { allowEmployeeAccess?: boolean } | LoginSuccessHandler;
+
+export function useLogin(loginConfiguration?: LoginConfiguration) {
+  const onLoginSuccess = typeof loginConfiguration === 'function' ? loginConfiguration : undefined;
+  const allowEmployeeAccess = typeof loginConfiguration === 'function'
+    ? true
+    : loginConfiguration?.allowEmployeeAccess ?? true;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -66,10 +74,14 @@ export function useLogin({ allowEmployeeAccess = true }: { allowEmployeeAccess?:
         return;
       }
 
-      if (profile.role === 'super_admin' || profile.role === 'company_admin') {
-        router.replace('/admin-review' as Href);
+      const destination = profile.role === 'super_admin' || profile.role === 'company_admin'
+        ? '/admin-review' as Href
+        : '/explore' as Href;
+
+      if (onLoginSuccess) {
+        await onLoginSuccess(destination);
       } else {
-        router.replace('/explore');
+        router.replace(destination);
       }
     } catch {
       setError('Det lykkedes ikke at logge ind. Prøv igen.');

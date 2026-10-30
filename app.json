@@ -39,7 +39,16 @@
           "imageWidth": 140
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Frigo bruger Face ID til at bekræfte, at det er dig."
+        }
+      ],
+      "expo-secure-store",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
