@@ -15,6 +15,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="signup" />
         <Stack.Screen name="mock-home" />
+        <Stack.Screen name="forgot-password" />
         <Stack.Screen name="pending" />
         <Stack.Screen name="explore" />
         <Stack.Screen name="admin-review" />
