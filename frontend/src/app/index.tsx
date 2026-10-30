@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ForgotPasswordFlow } from '@/frontend/src/app/forgot-password-flow';
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
+import { ForgotPasswordFlow } from '@/frontend/src/app/forgot-password-flow';
 import { useLogin } from '@/frontend/src/hooks/use-login';
 
 const colors = {
@@ -185,6 +186,7 @@ export default function LoginScreen() {
 
             <Pressable
               accessibilityRole="button"
+              onPress={() => setShowForgotPassword(true)}
               onPress={() => setShowForgotPassword(true)}
               style={styles.forgotButton}>
               <Text style={styles.forgotText}>Glemt adgangskode?</Text>
