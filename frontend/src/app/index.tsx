@@ -8,6 +8,7 @@ import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
+import { ForgotPasswordFlow } from '@/frontend/src/app/forgot-password-flow';
 import { useLogin } from '@/frontend/src/hooks/use-login';
 
 const colors = {
@@ -27,7 +28,7 @@ export default function LoginScreen() {
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
   const [isMockLoading, setIsMockLoading] = useState(false);
   const [isMockBiometricFlow, setIsMockBiometricFlow] = useState(false);
-  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   async function handleLoginSuccess(destination: Href, isMockFlow = false) {
     try {
@@ -139,6 +140,10 @@ export default function LoginScreen() {
 
   const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin(handleLoginSuccess);
 
+  if (showForgotPassword) {
+    return <ForgotPasswordFlow onClose={() => setShowForgotPassword(false)} />;
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -188,15 +193,10 @@ export default function LoginScreen() {
 
             <Pressable
               accessibilityRole="button"
-              onPress={() => setShowPasswordHelp((shown) => !shown)}
+              onPress={() => setShowForgotPassword(true)}
               style={styles.forgotButton}>
               <Text style={styles.forgotText}>Glemt adgangskode?</Text>
             </Pressable>
-            {showPasswordHelp && (
-              <Text accessibilityRole="text" style={styles.helpText}>
-                Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
-              </Text>
-            )}
           </View>
 
           <View style={styles.actions}>
@@ -222,7 +222,7 @@ export default function LoginScreen() {
               style={({ pressed }) => [styles.mockLoginButton, pressed && styles.pressed, isMockLoading && styles.disabled]}>
               {isMockLoading
                 ? <ActivityIndicator color={colors.white} />
-                : <Text style={styles.mockLoginText}>Prøv demo-login</Text>}
+                : <Text style={styles.mockLoginText}>Log ind med demo</Text>}
             </Pressable>
             <Text style={styles.mockLoginNote}>Bruger kun fiktive data. Ingen konto oprettes.</Text>
           </View>
@@ -295,7 +295,6 @@ const styles = StyleSheet.create({
   noticeText: { color: '#192A8C' },
   forgotButton: { alignSelf: 'flex-end', minHeight: 34, justifyContent: 'center', marginTop: 2 },
   forgotText: { color: colors.white, fontSize: 14, fontWeight: '600' },
-  helpText: { color: '#E3E8FF', fontSize: 13, lineHeight: 19, textAlign: 'right' },
   actions: { gap: 12 },
   primaryButton: { height: 58, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: colors.ink, fontSize: 17, fontWeight: '700' },
