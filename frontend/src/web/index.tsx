@@ -65,6 +65,7 @@ export default function WebLoginPage() {
             <button type="submit" disabled={isLoading || !email.trim() || !password}>
               {isLoading ? 'Logger ind...' : 'Log ind'}
             </button>
+            <p className="frigo-signup-login-link">Har du ikke en konto? <Link href="/signup">Opret profil</Link></p>
           </form>
         </div>
       </section>

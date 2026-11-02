@@ -195,7 +195,7 @@
   border-radius: 20px;
   color: #f4f5ff;
   background: #303d87;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -273,7 +273,7 @@
 .frigo-admin-sign-out:hover { color: #fff; background: #303d87; }
 .frigo-admin-sign-out:disabled { opacity: .55; cursor: wait; }
 .frigo-admin-main { min-height: 100vh; margin-left: 244px; padding: 42px clamp(24px, 5vw, 72px); }
-.frigo-admin-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+.frigo-admin-page-header { display: flex; align-items: center; justify-content: space-between; }
 .frigo-admin-eyebrow { margin: 0 0 8px; color: #727da4; font-size: 10px; font-weight: 800; letter-spacing: 1.2px; }
 .frigo-admin-page-header h1 { margin: 0; color: #172044; font-size: 28px; line-height: 1.2; }
 .frigo-admin-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
@@ -416,7 +416,7 @@
   .frigo-admin-admin-fields { grid-template-columns: 1fr; }
 }
 
-.frigo-department-description { margin: -18px 0 20px; color: var(--admin-muted); font-size: 12px; line-height: 1.5; }
+.frigo-department-description { color: var(--admin-muted); font-size: 12px; line-height: 1.5; }
 .frigo-department-company-selector {
   display: flex;
   min-height: 60px;
@@ -566,3 +566,99 @@
   .frigo-department-products-footer { align-items: flex-start; flex-direction: column; }
   .frigo-department-products-footer .frigo-admin-modal-actions { width: 100%; justify-content: flex-end; }
 }
+
+.frigo-user-section-header > div { min-width: 0; }
+.frigo-user-section-header h2 { font-size: 25px; }
+.frigo-user-section-header p { margin: 7px 0 0; color: var(--admin-muted); font-size: 15px; }
+.frigo-user-section-header .frigo-admin-primary-button { min-height: 48px; padding: 0 22px; font-size: 14px; }
+.frigo-user-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
+.frigo-user-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px; }
+.frigo-user-search { display: flex; width: min(100%, 440px); min-height: 50px; align-items: center; gap: 11px; padding: 0 16px; border: 1px solid #dce1ed; border-radius: 26px; color: #64708a; }
+.frigo-user-search > span { font-size: 22px; line-height: 1; }
+.frigo-user-search input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; outline: 0; color: var(--admin-ink); background: transparent; font: inherit; font-size: 14px; }
+.frigo-user-search input:focus-visible { outline: 0; }
+.frigo-user-filters { display: flex; gap: 8px; }
+.frigo-user-filters button { min-height: 42px; margin: 0; padding: 0 18px; border: 1px solid #dce1ed; border-radius: 22px; color: #58627a; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.frigo-user-filters button.is-selected { border-color: #102de0; color: #fff; background: #102de0; }
+.frigo-user-filters button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
+.frigo-user-table-wrap { width: 100%; overflow-x: auto; }
+.frigo-user-table { width: 100%; border-collapse: collapse; text-align: left; }
+.frigo-user-table th { padding: 16px 20px; border-bottom: 1px solid #edf0f5; color: #727d96; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.frigo-user-table th:last-child { text-align: right; }
+.frigo-user-table td { padding: 15px 20px; border-bottom: 1px solid #f0f2f6; color: #202b49; font-size: 14px; vertical-align: middle; }
+.frigo-user-table tbody tr:last-child td { border-bottom: 0; }
+.frigo-user-identity { display: flex; min-width: 210px; align-items: center; gap: 13px; }
+.frigo-user-identity > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.frigo-user-identity strong { overflow: hidden; color: #172044; font-size: 15px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.frigo-user-identity small, .frigo-user-department { color: #7d879d; font-size: 12px; }
+.frigo-user-company { display: block; min-width: 150px; color: #3e4964; font-size: 13px; }
+.frigo-user-department { display: block; margin-top: 4px; }
+.frigo-user-avatar { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 50%; color: #3448bd; background: #e8ebff; }
+.frigo-user-avatar-image, .frigo-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.frigo-user-avatar-placeholder { display: grid; width: 100%; height: 100%; place-items: center; }
+.frigo-user-avatar-placeholder svg { width: 23px; height: 23px; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.frigo-user-role-chip, .frigo-user-status { display: inline-flex; min-height: 28px; align-items: center; padding: 0 13px; border-radius: 16px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+.frigo-user-role-chip { color: #3448a5; background: #e8ebff; }
+.frigo-user-role-chip.is-super_admin { color: #fff; background: #101b68; }
+.frigo-user-role-chip.is-employee { color: #45516a; background: #edf0f5; }
+.frigo-user-status { color: #287c58; background: #e4f3e9; }
+.frigo-user-status.is-inactive, .frigo-user-status.is-rejected, .frigo-user-status.is-deleted { color: #70788c; background: #eef0f5; }
+.frigo-user-status.is-pending { color: #8a6400; background: #fff4d2; }
+.frigo-user-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.frigo-user-icon-button { display: grid; width: 42px; height: 42px; min-height: 42px; margin: 0; place-items: center; border: 1px solid #e1e5ef; border-radius: 50%; color: #293653; background: #fff; cursor: pointer; }
+.frigo-user-icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.frigo-user-icon-button.is-danger { border-color: #f2dddd; color: #b54037; background: #fff3f2; }
+.frigo-user-icon-button:hover:not(:disabled) { background: #f1f3f8; }
+.frigo-user-icon-button.is-danger:hover:not(:disabled) { background: #ffe8e5; }
+.frigo-user-icon-button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
+.frigo-user-icon-button:disabled { opacity: .4; cursor: not-allowed; }
+.frigo-user-modal { width: min(100%, 680px); padding: 30px; }
+.frigo-user-modal .frigo-admin-modal-header h2 { font-size: 24px; }
+.frigo-user-modal .frigo-admin-modal-header { margin-bottom: 24px; }
+.frigo-user-modal form { gap: 12px; }
+.frigo-user-modal label { font-size: 14px; }
+.frigo-user-modal input, .frigo-user-modal select { min-height: 50px; padding: 0 14px; font-size: 14px; }
+.frigo-user-modal .frigo-admin-modal-help { font-size: 12px; }
+.frigo-user-image-control { display: flex; align-items: center; gap: 16px; margin: -2px 0 6px; }
+.frigo-user-avatar-large { width: 68px; height: 68px; border-radius: 16px; }
+.frigo-user-avatar-large .frigo-user-avatar-placeholder { width: 100%; height: 100%; }
+.frigo-user-avatar-large .frigo-user-avatar-placeholder svg { width: 23px; height: 23px; }
+.frigo-user-upload-button { display: inline-flex; min-height: 42px; align-items: center; padding: 0 18px; border: 1px solid #dce1ed; border-radius: 24px; color: #24304e !important; background: #fff; font-size: 13px !important; cursor: pointer; }
+.frigo-user-upload-button input { position: absolute; width: 1px; min-height: 0; height: 1px; overflow: hidden; padding: 0; border: 0; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+.frigo-user-image-control .frigo-admin-modal-help { margin-top: 6px; }
+.frigo-user-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.frigo-user-form-grid > div { min-width: 0; }
+.frigo-user-role-fieldset { display: flex; flex-direction: column; gap: 12px; margin: 7px 0 3px; padding: 16px; border: 1px solid #edf0f5; border-radius: 11px; }
+.frigo-user-role-fieldset legend { padding: 0 7px; color: #18213d; font-size: 14px; font-weight: 700; }
+.frigo-user-radio { display: flex; align-items: center; gap: 9px; color: #35405d !important; font-size: 14px !important; font-weight: 400 !important; cursor: pointer; }
+.frigo-user-radio input { width: 19px; min-height: 19px; height: 19px; margin: 0; accent-color: #102de0; }
+.frigo-user-radio small { color: #8790a4; font-size: 12px; }
+.frigo-user-modal .frigo-admin-modal-actions { margin-top: 10px; }
+.frigo-user-modal .frigo-admin-modal-actions button { min-height: 48px; padding: 0 20px; font-size: 14px; }
+@media (max-width: 760px) {
+  .frigo-user-toolbar { align-items: stretch; flex-direction: column; }
+  .frigo-user-search { width: 100%; }
+  .frigo-user-filters { justify-content: flex-end; }
+  .frigo-user-table { min-width: 760px; }
+  .frigo-user-modal { padding: 24px; }
+}
+@media (max-width: 460px) {
+  .frigo-user-form-grid { grid-template-columns: 1fr; }
+  .frigo-user-role-fieldset { gap: 10px; }
+  .frigo-user-radio { flex-wrap: wrap; }
+}
+.frigo-signup-login-link { margin: 8px 0 0; color: #788198; font-size: 11px; text-align: center; }
+.frigo-signup-login-link a, .frigo-signup-back-link { color: #102de0; font-weight: 650; text-decoration: none; }
+.frigo-signup-login-link a:hover, .frigo-signup-back-link:hover { text-decoration: underline; }
+.frigo-web .frigo-signup-card select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  color: #19213e;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+.frigo-signup-back-link { display: inline-block; font-size: 12px; }

@@ -35,6 +35,8 @@ create table public.profiles (
   role public.app_role not null default 'employee',
   status public.user_status not null default 'pending',
   company_id bigint references public.companies(id) on delete restrict,
+  department_id bigint,
+  avatar_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
@@ -67,6 +69,11 @@ create table public.departments (
   unique (id, company_id),
   unique (company_id, name)
 );
+
+alter table public.profiles
+  add constraint profiles_department_company_fkey
+  foreign key (department_id, company_id) references public.departments(id, company_id)
+  on delete set null (department_id);
 
 create table public.categories (
   id bigint generated always as identity primary key,
@@ -194,6 +201,7 @@ create table public.audit_history (
 );
 
 create index profiles_company_idx on public.profiles(company_id);
+create index profiles_department_idx on public.profiles(department_id);
 create index employee_requests_company_status_idx on public.employee_requests(company_id, status);
 create index products_company_category_idx on public.products(company_id, category_id);
 create index department_products_company_idx on public.department_products(company_id, department_id, product_id);
@@ -366,7 +374,24 @@ stable
 security definer
 set search_path = public
 as $$
-  select company_id from public.profiles where id = auth.uid();
+  select p.company_id
+  from public.profiles p
+  left join public.companies c on c.id = p.company_id
+  where p.id = auth.uid()
+    and p.status = 'active'
+    and (p.company_id is null or c.status = 'active');
+$$;
+
+create or replace function public.current_department_id()
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select department_id
+  from public.profiles
+  where id = auth.uid() and status = 'active';
 $$;
 
 create or replace function public.is_super_admin()
@@ -391,6 +416,13 @@ as $$
 declare
   replacement_required boolean := false;
 begin
+  if exists (select 1 from public.companies where id = old.company_id and status = 'deleted') then
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
+    return new;
+  end if;
+
   if old.role = 'company_admin' and old.status = 'active' then
     if tg_op = 'DELETE' then
       replacement_required := true;
@@ -424,7 +456,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.is_super_admin() then
+  if auth.role() <> 'service_role' and not public.is_super_admin() then
     if new.role <> old.role or new.company_id <> old.company_id then
       raise exception 'Only a super admin can change roles or company assignments';
     end if;
@@ -458,6 +490,10 @@ alter table public.audit_history enable row level security;
 create policy "Authenticated users can view their company"
 on public.companies for select to authenticated
 using (public.is_super_admin() or id = public.current_company_id());
+
+create policy "Anyone can view active companies for signup"
+on public.companies for select to anon
+using (status = 'active');
 
 create policy "Super admins create companies"
 on public.companies for insert to authenticated
@@ -542,6 +578,18 @@ using (
   or (
     company_id = public.current_company_id()
     and (active or public.current_user_role() = 'company_admin')
+    and (
+      public.current_user_role() = 'company_admin'
+      or
+      public.current_department_id() is null
+      or exists (
+        select 1
+        from public.department_products dp
+        where dp.company_id = products.company_id
+          and dp.department_id = public.current_department_id()
+          and dp.product_id = products.id
+      )
+    )
   )
 );
 
@@ -678,6 +726,12 @@ insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', false)
 on conflict (id) do nothing;
 
+insert into storage.buckets (id, name, public)
+values ('profile-images', 'profile-images', false)
+on conflict (id) do update
+set file_size_limit = 5242880,
+    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
 create policy "Company admins upload product images"
 on storage.objects for insert to authenticated
 with check (
@@ -705,6 +759,42 @@ create policy "Company admins manage product images"
 on storage.objects for delete to authenticated
 using (
   bucket_id = 'product-images'
+  and (
+    public.is_super_admin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and (storage.foldername(name))[1] = public.current_company_id()::text
+    )
+  )
+);
+
+create policy "Admins upload profile images"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'profile-images'
+  and (
+    public.is_super_admin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and (storage.foldername(name))[1] = public.current_company_id()::text
+    )
+  )
+);
+
+create policy "Company members view profile images"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'profile-images'
+  and (
+    public.is_super_admin()
+    or (storage.foldername(name))[1] = public.current_company_id()::text
+  )
+);
+
+create policy "Admins delete profile images"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'profile-images'
   and (
     public.is_super_admin()
     or (

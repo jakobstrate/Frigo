@@ -17,16 +17,21 @@ The website runs at http://localhost:8082. `npm run web` is an alias for `npm ru
 
 ## Creating companies
 
-Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, `supabase/update_company_details.sql`, and `supabase/manage_department_products.sql` to the Supabase project in that order. Then deploy the Edge Functions:
+Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, `supabase/update_company_details.sql`, `supabase/manage_department_products.sql`, and `supabase/data_retention.sql` to the Supabase project in that order. Then deploy the Edge Functions:
 
 ```bash
 supabase functions deploy create-company
 supabase functions deploy update-company
+supabase functions deploy manage-users
 ```
 
 When a company has no active administrator, the edit dialog can send an invitation to create its first one.
 
 The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
+
+The user page is available to Superadmins across all companies and to company administrators within their own company. Admin-created accounts are active immediately and receive a login invitation. Company administrators can create and manage employees only; only Superadmins can assign roles or companies. Employee registration lists active companies, and the approving administrator assigns the department. A user without a department belongs to the whole company. Profile pictures must be square, at least 800 × 800 pixels, JPG/PNG/WEBP, and no larger than 5 MB.
+
+Deleting a profile or company blocks account sign-in and soft-deletes the profile/company without immediately removing accounting history. The database prevents hard deletion during the five-year retention period. `data_retention.sql` schedules a daily Supabase Cron job that removes expired accounting rows, Auth users, profiles, and companies after that period.
 
 The department page lets Superadmins select a company and manage its departments, while company admins are restricted to their own company. Department product selections are saved through `set_department_products` so the product list is replaced atomically.
 

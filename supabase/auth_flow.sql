@@ -1,5 +1,9 @@
 -- Apply after schema.sql on an existing or fresh Supabase project.
--- Employee signup metadata must include display_name and approver_email.
+-- Employee signup metadata must include display_name and company_id.
+
+alter table public.profiles
+  add column if not exists department_id bigint,
+  add column if not exists avatar_path text;
 
 alter table public.profiles
   drop constraint if exists employees_need_a_company;
@@ -10,6 +14,19 @@ alter table public.profiles
     or company_id is not null
     or status in ('pending', 'rejected')
   );
+
+alter table public.profiles
+  drop constraint if exists profiles_department_company_fkey;
+
+alter table public.profiles
+  add constraint profiles_department_company_fkey
+  foreign key (department_id, company_id) references public.departments(id, company_id)
+  on delete set null (department_id);
+
+drop policy if exists "Anyone can view active companies for signup" on public.companies;
+create policy "Anyone can view active companies for signup"
+on public.companies for select to anon
+using (status = 'active');
 
 alter table public.employee_requests
   alter column company_id drop not null;
@@ -40,6 +57,33 @@ using (
   )
 );
 
+create or replace function public.current_company_id()
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.company_id
+  from public.profiles p
+  left join public.companies c on c.id = p.company_id
+  where p.id = auth.uid()
+    and p.status = 'active'
+    and (p.company_id is null or c.status = 'active');
+$$;
+
+create or replace function public.current_department_id()
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select department_id
+  from public.profiles
+  where id = auth.uid() and status = 'active';
+$$;
+
 create or replace function public.create_employee_request_for_auth_user()
 returns trigger
 language plpgsql
@@ -50,40 +94,80 @@ declare
   target_admin public.profiles%rowtype;
   requested_name text;
   requested_admin_email text;
+  requested_company_id bigint;
   assigned_company_id bigint;
 begin
-  if new.raw_user_meta_data ->> 'frigo_invitation_role' = 'company_admin' then
+  if new.raw_user_meta_data ->> 'frigo_invitation_role' in ('company_admin', 'admin_created')
+    or new.raw_user_meta_data ->> 'frigo_admin_created' = 'true' then
     return new;
   end if;
 
   requested_name := nullif(trim(new.raw_user_meta_data ->> 'display_name'), '');
+  if nullif(trim(new.raw_user_meta_data ->> 'company_id'), '') is not null then
+    begin
+      requested_company_id := (new.raw_user_meta_data ->> 'company_id')::bigint;
+    exception when invalid_text_representation then
+      raise exception 'Select an existing company';
+    end;
+
+    if not exists (
+      select 1 from public.companies
+      where id = requested_company_id and status = 'active'
+    ) then
+      raise exception 'The selected company does not exist or is inactive';
+    end if;
+
+    select * into target_admin
+    from public.profiles p
+    where p.company_id = requested_company_id
+      and p.role = 'company_admin'
+      and p.status = 'active'
+    order by p.created_at
+    limit 1;
+
+    if not found then
+      select * into target_admin
+      from public.profiles p
+      where p.role = 'super_admin' and p.status = 'active'
+      order by p.created_at
+      limit 1;
+    end if;
+
+    assigned_company_id := requested_company_id;
+  else
   requested_admin_email := lower(trim(coalesce(new.raw_user_meta_data ->> 'approver_email', '')));
 
-  if requested_name is null or requested_admin_email = '' then
-    raise exception 'Employee signup requires display_name and approver_email';
+    if requested_admin_email = '' then
+      raise exception 'Employee signup requires a company selection';
+    end if;
+
+    select * into target_admin
+    from public.profiles p
+    where lower(p.email) = requested_admin_email
+      and p.status = 'active'
+      and p.role in ('company_admin', 'super_admin')
+    order by p.created_at
+    limit 1;
+
+    if target_admin.id is null then
+      raise exception 'No active CompanyAdmin or SuperAdmin matches the entered email';
+    end if;
+
+    if target_admin.role = 'company_admin' and target_admin.company_id is null then
+      raise exception 'The selected CompanyAdmin is not linked to a company';
+    end if;
+
+    assigned_company_id := case
+      when target_admin.role = 'company_admin' then target_admin.company_id
+      else null
+    end;
   end if;
 
-  select * into target_admin
-  from public.profiles p
-  where lower(p.email) = requested_admin_email
-    and p.status = 'active'
-    and p.role in ('company_admin', 'super_admin')
-  order by p.created_at
-  limit 1;
-
-  if not found then
-    raise exception 'No active CompanyAdmin or SuperAdmin matches the entered email';
+  if requested_name is null or target_admin.id is null then
+    raise exception 'Employee signup requires a name, active company admin, or superadmin';
   end if;
 
-  if target_admin.role = 'company_admin' and target_admin.company_id is null then
-    raise exception 'The selected CompanyAdmin is not linked to a company';
-  end if;
-
-  assigned_company_id := case
-    when target_admin.role = 'company_admin' then target_admin.company_id
-    else null
-  end;
-
+  requested_admin_email := target_admin.email;
   insert into public.profiles (id, display_name, email, role, status, company_id)
   values (new.id, requested_name, new.email, 'employee', 'pending', assigned_company_id);
 
@@ -116,6 +200,8 @@ drop trigger if exists on_auth_user_created_employee_request on auth.users;
 create trigger on_auth_user_created_employee_request
 after insert on auth.users
 for each row execute function public.create_employee_request_for_auth_user();
+
+drop function if exists public.review_employee_request(bigint, boolean, bigint, text);
 
 drop function if exists public.create_company_with_admin(text, text[], uuid, text, text);
 drop function if exists public.create_company_without_admin(text, text[]);
@@ -176,10 +262,87 @@ $$;
 revoke all on function public.create_company_without_admin(text, text[], uuid, text, text) from public, anon, authenticated;
 grant execute on function public.create_company_without_admin(text, text[], uuid, text, text) to service_role;
 
+create or replace function public.prevent_last_company_admin_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  replacement_required boolean := false;
+begin
+  if exists (select 1 from public.companies where id = old.company_id and status = 'deleted') then
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
+    return new;
+  end if;
+
+  if old.role = 'company_admin' and old.status = 'active' then
+    if tg_op = 'DELETE' then
+      replacement_required := true;
+    else
+      replacement_required := new.role <> 'company_admin'
+        or new.status <> 'active'
+        or new.company_id <> old.company_id;
+    end if;
+  end if;
+
+  if replacement_required and not exists (
+    select 1 from public.profiles replacement
+    where replacement.company_id = old.company_id
+      and replacement.role = 'company_admin'
+      and replacement.status = 'active'
+      and replacement.id <> old.id
+  ) then
+    raise exception 'Select a replacement company admin before deleting this user';
+  end if;
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.prevent_company_admin_role_escalation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() <> 'service_role' and not public.is_super_admin() then
+    if new.role <> old.role or new.company_id <> old.company_id then
+      raise exception 'Only a super admin can change roles or company assignments';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.soft_delete_company(p_company_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.companies set status = 'deleted' where id = p_company_id and status <> 'deleted';
+  if not found then
+    raise exception 'The company does not exist or has already been deleted';
+  end if;
+  update public.profiles set status = 'deleted' where company_id = p_company_id and status <> 'deleted';
+end;
+$$;
+
+revoke all on function public.soft_delete_company(bigint) from public, anon, authenticated;
+grant execute on function public.soft_delete_company(bigint) to service_role;
+
 create or replace function public.review_employee_request(
   p_request_id bigint,
   p_accept boolean,
   p_company_id bigint default null,
+  p_department_id bigint default null,
   p_decline_reason text default null
 )
 returns void
@@ -230,8 +393,14 @@ begin
     if approved_company_id is null then
       raise exception 'An active company is required to accept this request';
     end if;
+    if p_department_id is not null and not exists (
+      select 1 from public.departments
+      where id = p_department_id and company_id = approved_company_id
+    ) then
+      raise exception 'Select a department that belongs to the selected company';
+    end if;
     update public.profiles
-    set company_id = approved_company_id, status = 'active'
+    set company_id = approved_company_id, department_id = p_department_id, status = 'active'
     where id = request_row.employee_id;
 
     update public.employee_requests
@@ -259,5 +428,73 @@ begin
 end;
 $$;
 
-revoke all on function public.review_employee_request(bigint, boolean, bigint, text) from public;
-grant execute on function public.review_employee_request(bigint, boolean, bigint, text) to authenticated;
+revoke all on function public.review_employee_request(bigint, boolean, bigint, bigint, text) from public;
+grant execute on function public.review_employee_request(bigint, boolean, bigint, bigint, text) to authenticated;
+
+drop policy if exists "Company members view products" on public.products;
+create policy "Company members view products"
+on public.products for select to authenticated
+using (
+  public.is_super_admin()
+  or (
+    company_id = public.current_company_id()
+    and (active or public.current_user_role() = 'company_admin')
+    and (
+      public.current_user_role() = 'company_admin'
+      or
+      public.current_department_id() is null
+      or exists (
+        select 1
+        from public.department_products dp
+        where dp.company_id = products.company_id
+          and dp.department_id = public.current_department_id()
+          and dp.product_id = products.id
+      )
+    )
+  )
+);
+
+insert into storage.buckets (id, name, public)
+values ('profile-images', 'profile-images', false)
+on conflict (id) do update
+set file_size_limit = 5242880,
+    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
+drop policy if exists "Admins upload profile images" on storage.objects;
+create policy "Admins upload profile images"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'profile-images'
+  and (
+    public.is_super_admin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and (storage.foldername(name))[1] = public.current_company_id()::text
+    )
+  )
+);
+
+drop policy if exists "Company members view profile images" on storage.objects;
+create policy "Company members view profile images"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'profile-images'
+  and (
+    public.is_super_admin()
+    or (storage.foldername(name))[1] = public.current_company_id()::text
+  )
+);
+
+drop policy if exists "Admins delete profile images" on storage.objects;
+create policy "Admins delete profile images"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'profile-images'
+  and (
+    public.is_super_admin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and (storage.foldername(name))[1] = public.current_company_id()::text
+    )
+  )
+);

@@ -31,6 +31,7 @@ const colors = {
 type AdminRole = 'super_admin' | 'company_admin';
 type Reviewer = { id: string; displayName: string; role: AdminRole; companyId: number | null };
 type Company = { id: number; name: string };
+type Department = { id: number; company_id: number; name: string };
 type EmployeeRequest = {
   id: number;
   employee_id: string;
@@ -46,8 +47,10 @@ type EmployeeRequest = {
 export default function AdminReviewScreen({ embedded = false }: { embedded?: boolean }) {
   const [reviewer, setReviewer] = useState<Reviewer | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [requests, setRequests] = useState<EmployeeRequest[]>([]);
   const [selectedCompanies, setSelectedCompanies] = useState<Record<number, number>>({});
+  const [selectedDepartments, setSelectedDepartments] = useState<Record<number, number | null>>({});
   const [declineReasons, setDeclineReasons] = useState<Record<number, string>>({});
   const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,21 +94,51 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
     };
     setReviewer(currentReviewer);
 
+    let companyRows: Company[] = [];
     if (currentReviewer.role === 'super_admin') {
-      const { data: companyRows, error: companiesError } = await supabase
+      const { data: companyData, error: companiesError } = await supabase
         .from('companies')
         .select('id, name')
         .eq('status', 'active')
         .order('name');
-      if (companiesError) setError(companiesError.message);
-      setCompanies(companyRows ?? []);
+      if (companiesError) {
+        setError(companiesError.message);
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+      companyRows = companyData ?? [];
     } else if (currentReviewer.companyId !== null) {
-      const { data: companyRows } = await supabase
+      const { data: companyData, error: companiesError } = await supabase
         .from('companies')
         .select('id, name')
         .eq('id', currentReviewer.companyId)
         .limit(1);
-      setCompanies(companyRows ?? []);
+      if (companiesError) {
+        setError(companiesError.message);
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+      companyRows = companyData ?? [];
+    }
+    setCompanies(companyRows);
+
+    if (companyRows.length > 0) {
+      const { data: departmentRows, error: departmentsError } = await supabase
+        .from('departments')
+        .select('id, company_id, name')
+        .in('company_id', companyRows.map(({ id }) => id))
+        .order('name');
+      if (departmentsError) {
+        setError(departmentsError.message);
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+      setDepartments(departmentRows ?? []);
+    } else {
+      setDepartments([]);
     }
 
     let requestQuery = supabase
@@ -133,14 +166,21 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
 
     const employeeIds = (requestRows ?? []).map((request) => request.employee_id);
     const companyIds = [...new Set((requestRows ?? []).map((request) => request.company_id).filter((id): id is number => id !== null))];
-    const [{ data: employees }, { data: companyLookup }] = await Promise.all([
+    const [{ data: employees, error: employeesError }, { data: companyLookup, error: companyLookupError }] = await Promise.all([
       employeeIds.length
         ? supabase.from('profiles').select('id, display_name, email').in('id', employeeIds)
-        : Promise.resolve({ data: [] as { id: string; display_name: string; email: string }[] }),
+        : Promise.resolve({ data: [] as { id: string; display_name: string; email: string }[], error: null }),
       companyIds.length
         ? supabase.from('companies').select('id, name').in('id', companyIds)
-        : Promise.resolve({ data: [] as Company[] }),
+        : Promise.resolve({ data: [] as Company[], error: null }),
     ]);
+    if (employeesError || companyLookupError) {
+      setError(employeesError?.message ?? companyLookupError?.message ?? 'Could not load request details.');
+      setRequests([]);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
 
     const employeeById = new Map((employees ?? []).map((employee) => [employee.id, employee]));
     const companyById = new Map((companyLookup ?? []).map((company) => [company.id, company]));
@@ -179,6 +219,7 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
       p_request_id: request.id,
       p_accept: accept,
       p_company_id: accept ? companyId : null,
+      p_department_id: accept ? selectedDepartments[request.id] ?? null : null,
       p_decline_reason: accept ? null : declineReasons[request.id]?.trim() || null,
     });
 
@@ -264,7 +305,10 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
                                 key={company.id}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
-                                onPress={() => setSelectedCompanies((current) => ({ ...current, [request.id]: company.id }))}
+                                onPress={() => {
+                                  setSelectedCompanies((current) => ({ ...current, [request.id]: company.id }));
+                                  setSelectedDepartments((current) => ({ ...current, [request.id]: null }));
+                                }}
                                 style={[styles.companyChoice, selected && styles.companyChoiceSelected]}
                               >
                                 <Text style={[styles.companyChoiceText, selected && styles.companyChoiceTextSelected]}>{company.name}</Text>
@@ -277,6 +321,42 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
                       <Text style={styles.companySummary}>
                         Joining {request.companyName ?? 'your company'}
                       </Text>
+                    )}
+
+                    {(reviewer?.role === 'company_admin' || selectedCompanies[request.id] || request.company_id) && (
+                      <View style={styles.companySection}>
+                        <Text style={styles.fieldLabel}>Department</Text>
+                        <View style={styles.companyChoices}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: selectedDepartments[request.id] == null }}
+                            onPress={() => setSelectedDepartments((current) => ({ ...current, [request.id]: null }))}
+                            style={[styles.companyChoice, selectedDepartments[request.id] == null && styles.companyChoiceSelected]}>
+                            <Text style={[styles.companyChoiceText, selectedDepartments[request.id] == null && styles.companyChoiceTextSelected]}>
+                              Whole company
+                            </Text>
+                          </Pressable>
+                          {departments
+                            .filter((department) => department.company_id === (
+                              reviewer?.role === 'super_admin'
+                                ? selectedCompanies[request.id] ?? request.company_id
+                                : reviewer?.companyId
+                            ))
+                            .map((department) => {
+                              const selected = selectedDepartments[request.id] === department.id;
+                              return (
+                                <Pressable
+                                  key={department.id}
+                                  accessibilityRole="button"
+                                  accessibilityState={{ selected }}
+                                  onPress={() => setSelectedDepartments((current) => ({ ...current, [request.id]: department.id }))}
+                                  style={[styles.companyChoice, selected && styles.companyChoiceSelected]}>
+                                  <Text style={[styles.companyChoiceText, selected && styles.companyChoiceTextSelected]}>{department.name}</Text>
+                                </Pressable>
+                              );
+                            })}
+                        </View>
+                      </View>
                     )}
 
                     <TextInput
@@ -299,9 +379,9 @@ export default function AdminReviewScreen({ embedded = false }: { embedded?: boo
                       </Pressable>
                       <Pressable
                         accessibilityRole="button"
-                        disabled={busy || (reviewer?.role === 'super_admin' && !selectedCompanies[request.id])}
+                        disabled={busy || (reviewer?.role === 'super_admin' && !selectedCompanies[request.id] && !request.company_id)}
                         onPress={() => handleReview(request, true)}
-                        style={({ pressed }) => [styles.acceptButton, pressed && styles.pressed, (busy || (reviewer?.role === 'super_admin' && !selectedCompanies[request.id])) && styles.disabled]}
+                        style={({ pressed }) => [styles.acceptButton, pressed && styles.pressed, (busy || (reviewer?.role === 'super_admin' && !selectedCompanies[request.id] && !request.company_id)) && styles.disabled]}
                       >
                         {busy ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.acceptText}>Accept request</Text>}
                       </Pressable>
