@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,11 +20,30 @@ const colors = {
 export default function SignupScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
+  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [companyId, setCompanyId] = useState<number | null>(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [confirmationRequired, setConfirmationRequired] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCompanies() {
+      const { data, error: companiesError } = await supabase
+        .from('companies')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name');
+      if (!isMounted) return;
+      if (companiesError) setError(`Could not load companies: ${companiesError.message}`);
+      setCompanies(data ?? []);
+      setIsLoadingCompanies(false);
+    }
+    void loadCompanies();
+    return () => { isMounted = false; };
+  }, []);
 
   async function handleSignup() {
     setError('');
@@ -35,7 +54,7 @@ export default function SignupScreen() {
       options: {
         data: {
           display_name: name.trim(),
-          approver_email: adminEmail.trim().toLowerCase(),
+          company_id: companyId,
         },
       },
     });
@@ -77,7 +96,7 @@ export default function SignupScreen() {
               <View style={styles.headingBlock}>
                 <Text style={styles.eyebrow}>JOIN YOUR COMPANY</Text>
                 <Text style={styles.title}>Create an account</Text>
-                <Text style={styles.subtitle}>Your request will be reviewed before company access is enabled.</Text>
+                <Text style={styles.subtitle}>Your request will be reviewed by a company administrator or SuperAdmin before access is enabled.</Text>
               </View>
 
               <View style={styles.form}>
@@ -87,9 +106,29 @@ export default function SignupScreen() {
                 <Text style={styles.label}>Your email</Text>
                 <TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setEmail} placeholder="you@company.com" placeholderTextColor="#8A958D" style={styles.input} value={email} />
 
-                <Text style={styles.label}>Company admin or SuperAdmin email</Text>
-                <TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setAdminEmail} placeholder="admin@company.com" placeholderTextColor="#8A958D" style={styles.input} value={adminEmail} />
-                <Text style={styles.helpText}>If you enter a SuperAdmin&apos;s email, they will choose your company when reviewing your request.</Text>
+                <Text style={styles.label}>Company</Text>
+                {isLoadingCompanies ? (
+                  <ActivityIndicator color={colors.green} />
+                ) : companies.length > 0 ? (
+                  <View style={styles.companyChoices}>
+                    {companies.map((company) => {
+                      const selected = companyId === company.id;
+                      return (
+                        <Pressable
+                          key={company.id}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          onPress={() => setCompanyId(company.id)}
+                          style={[styles.companyChoice, selected && styles.companyChoiceSelected]}>
+                          <Text style={[styles.companyChoiceText, selected && styles.companyChoiceTextSelected]}>{company.name}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Text style={styles.helpText}>No companies are currently available for registration.</Text>
+                )}
+                <Text style={styles.helpText}>Your company administrator reviews the request. If the company has no administrator, a SuperAdmin will review it.</Text>
 
                 <Text style={styles.label}>Password</Text>
                 <TextInput autoCapitalize="none" autoComplete="new-password" onChangeText={setPassword} placeholder="At least 6 characters" placeholderTextColor="#8A958D" secureTextEntry style={styles.input} value={password} />
@@ -98,9 +137,9 @@ export default function SignupScreen() {
 
                 <Pressable
                   accessibilityRole="button"
-                  disabled={isLoading || !name.trim() || !email.trim() || !adminEmail.trim() || password.length < 6}
+                  disabled={isLoading || isLoadingCompanies || !companies.length || !companyId || !name.trim() || !email.trim() || password.length < 6}
                   onPress={handleSignup}
-                  style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (isLoading || !name.trim() || !email.trim() || !adminEmail.trim() || password.length < 6) && styles.disabled]}>
+                  style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (isLoading || isLoadingCompanies || !companies.length || !companyId || !name.trim() || !email.trim() || password.length < 6) && styles.disabled]}>
                   {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Create account</Text>}
                 </Pressable>
 
@@ -133,6 +172,11 @@ const styles = StyleSheet.create({
   label: { color: colors.ink, fontSize: 13, fontWeight: '600', marginTop: 5 },
   input: { height: 50, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 8, paddingHorizontal: 15, color: colors.ink, fontSize: 15 },
   helpText: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: -3 },
+  companyChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  companyChoice: { minHeight: 38, borderWidth: 1, borderColor: colors.line, borderRadius: 8, backgroundColor: colors.white, justifyContent: 'center', paddingHorizontal: 12 },
+  companyChoiceSelected: { borderColor: colors.green, backgroundColor: '#E4F0E8' },
+  companyChoiceText: { color: colors.ink, fontSize: 12, fontWeight: '600' },
+  companyChoiceTextSelected: { color: colors.green },
   primaryButton: { height: 52, borderRadius: 8, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', marginTop: 9 },
   primaryButtonText: { color: colors.white, fontSize: 15, fontWeight: '700' },
   loginRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },

@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
-import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
+import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import CompanyManagement from '@/frontend/src/web/company-management';
 import DepartmentManagement from '@/frontend/src/web/department-management';
+import UserManagement from '@/frontend/src/web/user-management';
 
 type AdminProfile = {
   id: string;
@@ -110,6 +111,10 @@ function AdminPageContent({
 
   if (page === 'companies') {
     return <CompanyManagement />;
+  }
+
+  if (page === 'users') {
+    return <UserManagement role={profile.role} companyId={profile.company_id} />;
   }
 
   if (page === 'departments') {
@@ -265,7 +270,7 @@ export default function AdminDashboard() {
       <aside className="frigo-admin-sidebar">
         <div className="frigo-admin-brand">
           <FrigoLogo size={27} tone="light" />
-          <span className="frigo-admin-role-chip">{roleLabel}</span>
+          <span className="frigo-admin-role-chip">{companyName}</span>
         </div>
         <nav className="frigo-admin-navigation" aria-label="Hovedmenu">
           {allowedPages.map((item) => {
@@ -292,7 +297,7 @@ export default function AdminDashboard() {
           <span className="frigo-admin-avatar">{initials}</span>
           <span className="frigo-admin-account-details">
             <strong>{profile.display_name}</strong>
-            <span>{companyName || roleLabel}</span>
+            <span>{roleLabel}</span>
           </span>
           <button
             className="frigo-admin-sign-out"

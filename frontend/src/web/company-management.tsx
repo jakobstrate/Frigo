@@ -531,13 +531,24 @@ export default function CompanyManagement() {
     setDeletingCompanyId(company.id);
     setActionError('');
     setSuccessMessage('');
-    const { error } = await supabase
-      .from('companies')
-      .update({ status: 'deleted' })
-      .eq('id', company.id);
+    const { error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'delete-company', companyId: company.id },
+    });
 
     if (error) {
-      setActionError(`Virksomheden kunne ikke slettes: ${error.message}`);
+      let message = error.message;
+      if (error.context instanceof Response) {
+        try {
+          const responseBody: unknown = await error.context.json();
+          if (responseBody !== null && typeof responseBody === 'object'
+            && 'error' in responseBody && typeof responseBody.error === 'string') {
+            message = responseBody.error;
+          }
+        } catch {
+          message = error.message;
+        }
+      }
+      setActionError(`Virksomheden kunne ikke slettes: ${message}`);
     } else {
       setCompanyBeingDeleted(null);
       setSuccessMessage(`${company.name} er slettet fra oversigten.`);
