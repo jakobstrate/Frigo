@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import {
   Camera,
   Check,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   CircleUserRound,
@@ -90,10 +91,19 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricNotice, setBiometricNotice] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('MockPass1');
   const [newPassword, setNewPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [passwordNotice, setPasswordNotice] = useState('');
+  const hasPasswordMinimumLength = newPassword.length >= 8;
+  const hasPasswordUpperAndLowercase = /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword);
+  const hasPasswordNumber = /\d/.test(newPassword);
+  const passwordsMismatch = repeatPassword.length > 0 && newPassword !== repeatPassword;
+  const canSaveMockPassword = currentPassword.length > 0
+    && hasPasswordMinimumLength
+    && hasPasswordUpperAndLowercase
+    && hasPasswordNumber
+    && newPassword === repeatPassword;
 
   useEffect(() => {
     let isActive = true;
@@ -191,8 +201,12 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
   }
 
   function saveMockPassword() {
-    if (newPassword.length < 8) {
-      setPasswordError('Adgangskoden skal være på mindst 8 tegn.');
+    if (!currentPassword.trim()) {
+      setPasswordError('Skriv din nuværende adgangskode.');
+      return;
+    }
+    if (!hasPasswordMinimumLength || !hasPasswordUpperAndLowercase || !hasPasswordNumber) {
+      setPasswordError('Adgangskoden opfylder ikke alle krav endnu.');
       return;
     }
     if (newPassword !== repeatPassword) {
@@ -200,9 +214,10 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
       return;
     }
     setPasswordError('');
-    setPasswordNotice('Demo: adgangskoden er ikke ændret.');
+    setProfileNotice('Demo: adgangskoden er ikke ændret.');
     setNewPassword('');
     setRepeatPassword('');
+    setShowPasswordModal(false);
   }
 
   async function logOut() {
@@ -212,6 +227,77 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
 
   function confirmDeleteProfile() {
     Alert.alert('Slet profil', 'Demo: profilen bliver ikke slettet.', [{ text: 'OK' }]);
+  }
+
+  if (showPasswordModal) {
+    const mismatchVisible = passwordsMismatch || passwordError === 'Adgangskoderne er ikke ens.';
+
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.passwordPage}>
+          <ScrollView contentContainerStyle={styles.passwordContent} keyboardShouldPersistTaps="handled">
+            <Pressable accessibilityRole="button" onPress={() => setShowPasswordModal(false)} style={styles.passwordBackButton}>
+              <ChevronLeft color={colors.blue} size={25} strokeWidth={2.5} />
+              <Text style={styles.passwordBackText}>Indstillinger</Text>
+            </Pressable>
+
+            <Text style={styles.passwordPageTitle}>Ny adgangskode</Text>
+
+            <View style={styles.passwordFields}>
+              <Text style={styles.passwordFieldLabel}>Nuværende adgangskode</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoComplete="current-password"
+                onChangeText={(value) => { setCurrentPassword(value); setPasswordError(''); }}
+                secureTextEntry
+                style={styles.passwordInput}
+                value={currentPassword}
+              />
+
+              <Text style={styles.passwordFieldLabel}>Ny adgangskode</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoComplete="new-password"
+                onChangeText={(value) => { setNewPassword(value); setPasswordError(''); }}
+                secureTextEntry
+                style={styles.passwordInput}
+                value={newPassword}
+              />
+
+              <View style={styles.passwordRequirements}>
+                <PasswordRequirement label="Mindst 8 tegn" passed={hasPasswordMinimumLength} />
+                <PasswordRequirement label="Store og små bogstaver" passed={hasPasswordUpperAndLowercase} />
+                <PasswordRequirement label="Mindst ét tal" passed={hasPasswordNumber} />
+              </View>
+
+              <Text style={styles.passwordFieldLabel}>Gentag adgangskode</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoComplete="new-password"
+                onChangeText={(value) => { setRepeatPassword(value); setPasswordError(''); }}
+                secureTextEntry
+                style={[styles.passwordInput, mismatchVisible && styles.passwordInputError]}
+                value={repeatPassword}
+              />
+              {mismatchVisible && <Text accessibilityRole="alert" style={styles.passwordErrorText}>Adgangskoderne er ikke ens</Text>}
+              {!!passwordError && !mismatchVisible && <Text accessibilityRole="alert" style={styles.passwordErrorText}>{passwordError}</Text>}
+              <Text style={styles.passwordDemoNote}>Demo: adgangskoden bliver ikke ændret.</Text>
+            </View>
+          </ScrollView>
+
+          <View style={styles.passwordFooter}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={!canSaveMockPassword}
+              onPress={saveMockPassword}
+              style={({ pressed }) => [styles.passwordSaveButton, !canSaveMockPassword && styles.passwordSaveButtonDisabled, pressed && canSaveMockPassword && styles.pressed]}>
+              <Text style={[styles.passwordSaveText, !canSaveMockPassword && styles.passwordSaveTextDisabled]}>Gem adgangskode</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -361,7 +447,7 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
                     <Text style={styles.settingsLabel}>Adgangskode</Text>
                     <Text style={styles.passwordMask}>••••••••</Text>
                   </View>
-                  <Pressable accessibilityRole="button" onPress={() => { setPasswordError(''); setPasswordNotice(''); setShowPasswordModal(true); }} style={styles.outlineButton}>
+                  <Pressable accessibilityRole="button" onPress={() => { setPasswordError(''); setShowPasswordModal(true); }} style={styles.outlineButton}>
                     <Text style={styles.outlineButtonText}>Skift adgangskode</Text>
                   </Pressable>
                 </View>
@@ -511,30 +597,6 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
         </View>
       </Modal>
 
-      <Modal animationType="slide" transparent visible={showPasswordModal} onRequestClose={() => setShowPasswordModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Skift adgangskode</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Luk" onPress={() => setShowPasswordModal(false)} style={styles.modalClose}>
-                <X color={colors.ink} size={21} />
-              </Pressable>
-            </View>
-            <View style={styles.passwordForm}>
-              <Text style={styles.settingsLabel}>Ny adgangskode</Text>
-              <TextInput autoCapitalize="none" onChangeText={(value) => { setNewPassword(value); setPasswordError(''); setPasswordNotice(''); }} placeholder="Mindst 8 tegn" placeholderTextColor="#8A96AA" secureTextEntry style={styles.settingsInput} value={newPassword} />
-              <Text style={styles.settingsLabel}>Gentag adgangskode</Text>
-              <TextInput autoCapitalize="none" onChangeText={(value) => { setRepeatPassword(value); setPasswordError(''); setPasswordNotice(''); }} placeholder="Gentag adgangskode" placeholderTextColor="#8A96AA" secureTextEntry style={styles.settingsInput} value={repeatPassword} />
-              {!!passwordError && <Text accessibilityRole="alert" style={styles.settingsError}>{passwordError}</Text>}
-              {!!passwordNotice && <Text style={styles.settingsNotice}>{passwordNotice}</Text>}
-              <Pressable accessibilityRole="button" onPress={saveMockPassword} style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}>
-                <Text style={styles.saveButtonText}>Gem adgangskode</Text>
-              </Pressable>
-              <Text style={styles.demoNote}>Demo: adgangskoden ændres ikke.</Text>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -552,6 +614,22 @@ function TabButton({ label, active, onPress, children }: TabButtonProps) {
       {children}
       <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
     </Pressable>
+  );
+}
+
+type PasswordRequirementProps = {
+  label: string;
+  passed: boolean;
+};
+
+function PasswordRequirement({ label, passed }: PasswordRequirementProps) {
+  return (
+    <View style={styles.passwordRequirementRow}>
+      <View style={[styles.passwordRequirementIcon, passed && styles.passwordRequirementIconPassed]}>
+        {passed && <Check color={colors.white} size={14} strokeWidth={3} />}
+      </View>
+      <Text style={[styles.passwordRequirementText, passed && styles.passwordRequirementTextPassed]}>{label}</Text>
+    </View>
   );
 }
 
@@ -614,7 +692,28 @@ const styles = StyleSheet.create({
   accountActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
   deleteActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9 },
   deleteActionText: { flex: 1, color: '#C52C29', fontSize: 14, fontWeight: '600' },
-  passwordForm: { gap: 10 },
+  passwordPage: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center' },
+  passwordContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 },
+  passwordBackButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5 },
+  passwordBackText: { color: colors.blue, fontSize: 15, fontWeight: '600' },
+  passwordPageTitle: { color: colors.ink, fontSize: 29, lineHeight: 38, fontWeight: '700', marginTop: 38, marginBottom: 24 },
+  passwordFields: { gap: 10 },
+  passwordFieldLabel: { color: colors.ink, fontSize: 14, fontWeight: '600', marginTop: 6 },
+  passwordInput: { minHeight: 54, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white, color: colors.ink, fontSize: 15 },
+  passwordInputError: { borderWidth: 1.5, borderColor: '#D20F16' },
+  passwordRequirements: { gap: 7, marginTop: 9, marginBottom: 6 },
+  passwordRequirementRow: { minHeight: 29, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  passwordRequirementIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#B8C2D0', borderRadius: 14 },
+  passwordRequirementIconPassed: { borderColor: colors.green, backgroundColor: colors.green },
+  passwordRequirementText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
+  passwordRequirementTextPassed: { color: colors.green, fontWeight: '600' },
+  passwordErrorText: { color: '#D20F16', fontSize: 12, fontWeight: '500', marginTop: -4 },
+  passwordDemoNote: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  passwordFooter: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 18 },
+  passwordSaveButton: { minHeight: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 30, backgroundColor: colors.blue },
+  passwordSaveButtonDisabled: { backgroundColor: '#C8D0DB' },
+  passwordSaveText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+  passwordSaveTextDisabled: { color: '#586477' },
   bottomNav: { minHeight: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
   tabButton: { minWidth: 64, flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', gap: 4 },
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: '500' },
