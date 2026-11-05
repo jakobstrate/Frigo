@@ -671,8 +671,18 @@ type PasswordRequirementProps = {
 function PasswordRequirement({ label, passed }: PasswordRequirementProps) {
   return (
     <View style={styles.passwordRequirementRow}>
-      <View style={[styles.passwordRequirementIcon, passed && styles.passwordRequirementIconPassed]}>
-        {passed && <Check color={colors.white} size={14} strokeWidth={3} />}
+      <View
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: passed }}
+        style={[
+          styles.passwordRequirementIcon,
+          {
+            backgroundColor: passed ? '#21824E' : colors.background,
+            borderColor: passed ? '#21824E' : '#B8C2D0',
+            borderWidth: passed ? 0 : 2,
+          },
+        ]}>
+        {passed && <Check color="#FFFFFF" size={14} strokeWidth={3} />}
       </View>
       <Text style={[styles.passwordRequirementText, passed && styles.passwordRequirementTextPassed]}>{label}</Text>
     </View>
@@ -761,7 +771,6 @@ const styles = StyleSheet.create({
   passwordRequirements: { gap: 7, marginTop: 9, marginBottom: 6 },
   passwordRequirementRow: { minHeight: 29, flexDirection: 'row', alignItems: 'center', gap: 10 },
   passwordRequirementIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#B8C2D0', borderRadius: 14 },
-  passwordRequirementIconPassed: { borderColor: colors.green, backgroundColor: colors.green },
   passwordRequirementText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
   passwordRequirementTextPassed: { color: colors.green, fontWeight: '600' },
   passwordErrorText: { color: '#D20F16', fontSize: 12, fontWeight: '500', marginTop: -4 },
