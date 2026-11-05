@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
@@ -95,6 +95,8 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
   const [newPassword, setNewPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const hasPasswordMinimumLength = newPassword.length >= 8;
   const hasPasswordUpperAndLowercase = /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword);
   const hasPasswordNumber = /\d/.test(newPassword);
@@ -226,7 +228,12 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
   }
 
   function confirmDeleteProfile() {
-    Alert.alert('Slet profil', 'Demo: profilen bliver ikke slettet.', [{ text: 'OK' }]);
+    setShowDeleteConfirm(true);
+  }
+
+  function submitDeleteRequest() {
+    setShowDeleteConfirm(false);
+    setShowDeleteSuccess(true);
   }
 
   if (showPasswordModal) {
@@ -597,6 +604,45 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
         </View>
       </Modal>
 
+      <Modal animationType="fade" transparent visible={showDeleteConfirm} onRequestClose={() => setShowDeleteConfirm(false)}>
+        <View style={styles.deleteModalBackdrop}>
+          <View style={styles.deleteModalCard}>
+            <View style={styles.deleteModalIcon}>
+              <Trash2 color="#C52C29" size={25} />
+            </View>
+            <Text style={styles.deleteModalTitle}>Slet din profil?</Text>
+            <Text style={styles.deleteModalText}>
+              Vi sender en anmodning til din virksomheds admin, som sletter profilen. Indtil da kan du stadig logge ind og registrere. Dine registreringer gemmes i 5 år og slettes derefter.
+            </Text>
+            <Text style={styles.deleteModalDemoNote}>Demo: der sendes ingen rigtig anmodning.</Text>
+            <Pressable accessibilityRole="button" onPress={submitDeleteRequest} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+              <Text style={styles.deleteConfirmText}>Send sletteanmodning</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setShowDeleteConfirm(false)} style={styles.deleteCancelButton}>
+              <Text style={styles.deleteCancelText}>Fortryd</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="fade" transparent visible={showDeleteSuccess} onRequestClose={() => setShowDeleteSuccess(false)}>
+        <View style={styles.deleteModalBackdrop}>
+          <View style={styles.deleteModalCard}>
+            <View style={styles.deleteSuccessIcon}>
+              <Check color={colors.white} size={25} strokeWidth={3} />
+            </View>
+            <Text style={styles.deleteModalTitle}>Anmodning sendt</Text>
+            <Text style={styles.deleteModalText}>
+              Din sletteanmodning er sendt til din virksomhedsadministrator.
+            </Text>
+            <Text style={styles.deleteModalDemoNote}>Demo: din profil er ikke slettet, og anmodningen er ikke sendt til serveren.</Text>
+            <Pressable accessibilityRole="button" onPress={() => setShowDeleteSuccess(false)} style={styles.deleteSuccessButton}>
+              <Text style={styles.saveButtonText}>Tilbage til indstillinger</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -692,6 +738,17 @@ const styles = StyleSheet.create({
   accountActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
   deleteActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9 },
   deleteActionText: { flex: 1, color: '#C52C29', fontSize: 14, fontWeight: '600' },
+  deleteModalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: 'rgba(24, 31, 74, 0.58)' },
+  deleteModalCard: { width: '100%', maxWidth: 430, alignItems: 'center', gap: 14, padding: 24, borderRadius: 24, backgroundColor: colors.white },
+  deleteModalIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 29, backgroundColor: '#FCE9E7' },
+  deleteSuccessIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 29, backgroundColor: colors.green },
+  deleteModalTitle: { color: colors.ink, fontSize: 20, lineHeight: 27, fontWeight: '700', textAlign: 'center' },
+  deleteModalText: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  deleteModalDemoNote: { color: colors.muted, fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  deleteConfirmButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 25, backgroundColor: '#C52C29' },
+  deleteConfirmText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  deleteCancelButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: 25, backgroundColor: colors.white },
+  deleteCancelText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   passwordPage: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center' },
   passwordContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 },
   passwordBackButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5 },
@@ -714,6 +771,17 @@ const styles = StyleSheet.create({
   passwordSaveButtonDisabled: { backgroundColor: '#C8D0DB' },
   passwordSaveText: { color: colors.white, fontSize: 16, fontWeight: '600' },
   passwordSaveTextDisabled: { color: '#586477' },
+  deleteModalCard: { alignItems: 'center', gap: 14, marginHorizontal: 22, padding: 24, borderRadius: 22, backgroundColor: colors.background },
+  deleteModalIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 29, backgroundColor: '#FCE9E7' },
+  deleteSuccessIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 29, backgroundColor: colors.green },
+  deleteModalTitle: { color: colors.ink, fontSize: 20, lineHeight: 27, fontWeight: '700', textAlign: 'center' },
+  deleteModalText: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  deleteModalDemoNote: { color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  deleteConfirmButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 25, backgroundColor: '#C52C29' },
+  deleteConfirmText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  deleteCancelButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: 25, backgroundColor: colors.white, paddingHorizontal: 12 },
+  deleteCancelText: { color: colors.ink, fontSize: 14, fontWeight: '600' },
+  deleteSuccessButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 25, backgroundColor: colors.blue },
   bottomNav: { minHeight: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
   tabButton: { minWidth: 64, flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', gap: 4 },
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: '500' },
