@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ForgotPasswordFlow } from '@/frontend/src/app/forgot-password-flow';
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
-import { ForgotPasswordFlow } from '@/frontend/src/app/forgot-password-flow';
 import { useLogin } from '@/frontend/src/hooks/use-login';
 
 const colors = {
