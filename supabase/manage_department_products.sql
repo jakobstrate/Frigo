@@ -43,7 +43,7 @@ begin
     from unnest(p_product_ids) as selected(product_id)
     left join public.products p
       on p.id = selected.product_id
-      and p.company_id = target_company_id
+      and (p.company_id is null or p.company_id = target_company_id)
       and p.active
     left join public.categories c on c.id = p.category_id
     where p.id is null

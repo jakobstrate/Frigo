@@ -7,6 +7,7 @@ import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import CompanyManagement from '@/frontend/src/web/company-management';
 import DepartmentManagement from '@/frontend/src/web/department-management';
+import ProductManagement from '@/frontend/src/web/product-management';
 import UserManagement from '@/frontend/src/web/user-management';
 
 type AdminProfile = {
@@ -125,6 +126,10 @@ function AdminPageContent({
         companyName={companyName}
       />
     );
+  }
+
+  if (page === 'products') {
+    return <ProductManagement />;
   }
 
   return (
@@ -312,12 +317,14 @@ export default function AdminDashboard() {
         </div>
       </aside>
       <main className="frigo-admin-main">
-        <header className="frigo-admin-page-header">
-          <div>
-            <p className="frigo-admin-eyebrow">FRIGO ADMINISTRATION</p>
-            <h1>{allowedPages.find(({ id }) => id === activePage)?.label}</h1>
-          </div>
-        </header>
+        {activePage !== 'products' && (
+          <header className="frigo-admin-page-header">
+            <div>
+              <p className="frigo-admin-eyebrow">FRIGO ADMINISTRATION</p>
+              <h1>{allowedPages.find(({ id }) => id === activePage)?.label}</h1>
+            </div>
+          </header>
+        )}
         {notice && <p className="frigo-admin-notice" role="status">{notice}</p>}
         {signOutError && <p className="frigo-admin-error" role="alert">Kunne ikke logge ud: {signOutError}</p>}
         {activePage && hasAdminPermission(profile.role, `page:${activePage}`) && (

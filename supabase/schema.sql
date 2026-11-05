@@ -77,7 +77,7 @@ alter table public.profiles
 
 create table public.categories (
   id bigint generated always as identity primary key,
-  company_id bigint not null references public.companies(id) on delete cascade,
+  company_id bigint references public.companies(id) on delete cascade,
   department_id bigint,
   name text not null,
   copied_from_category_id bigint references public.categories(id) on delete set null,
@@ -85,7 +85,11 @@ create table public.categories (
   updated_at timestamptz not null default now(),
   active boolean not null default true,
   unique (id, company_id),
-  foreign key (department_id, company_id) references public.departments(id, company_id) on delete cascade
+  foreign key (department_id, company_id) references public.departments(id, company_id) on delete cascade,
+  check (
+    (company_id is null and department_id is null)
+    or (company_id is not null and department_id is not null)
+  )
 );
 
 create unique index categories_company_name_unique
@@ -96,12 +100,17 @@ create unique index categories_department_name_unique
 on public.categories(company_id, department_id, name)
 where department_id is not null;
 
+create unique index categories_global_name_unique
+on public.categories(name)
+where company_id is null and department_id is null;
+
 create table public.products (
   id bigint generated always as identity primary key,
-  company_id bigint not null references public.companies(id) on delete cascade,
+  company_id bigint references public.companies(id) on delete cascade,
   category_id bigint,
   name text not null,
   description text,
+  unit text not null default '',
   price numeric(10, 2) not null check (price >= 0),
   image_path text not null,
   copied_from_product_id bigint references public.products(id) on delete set null,
@@ -109,7 +118,8 @@ create table public.products (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (id, company_id),
-  foreign key (category_id, company_id) references public.categories(id, company_id)
+  foreign key (category_id) references public.categories(id) on delete set null,
+  check (company_id is null)
 );
 
 -- Department-product membership is the single source of truth for which departments offer a product.
@@ -123,7 +133,7 @@ create table public.department_products (
   primary key (department_id, product_id),
   unique (department_id, product_id, company_id),
   foreign key (department_id, company_id) references public.departments(id, company_id) on delete cascade,
-  foreign key (product_id, company_id) references public.products(id, company_id) on delete cascade
+  foreign key (product_id) references public.products(id) on delete cascade
 );
 
 create table public.favorites (
@@ -135,7 +145,7 @@ create table public.favorites (
   updated_at timestamptz not null default now(),
   unique (user_id, product_id),
   foreign key (user_id, company_id) references public.profiles(id, company_id) on delete cascade,
-  foreign key (product_id, company_id) references public.products(id, company_id) on delete cascade
+  foreign key (product_id) references public.products(id) on delete cascade
 );
 
 create table public.payment_provider_accounts (
@@ -232,6 +242,8 @@ for each row execute function public.set_updated_at();
 create or replace function public.sync_department_catalog()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   if tg_table_name = 'departments' then
@@ -240,7 +252,7 @@ begin
       select new.company_id, new.id, p.id, true
       from public.products p
       left join public.categories c on c.id = p.category_id
-      where p.company_id = new.company_id
+      where (p.company_id is null or p.company_id = new.company_id)
         and p.active
         and (c.department_id is null or c.department_id = new.id)
       on conflict (department_id, product_id) do nothing;
@@ -253,7 +265,7 @@ begin
     select new.company_id, d.id, new.id, true
     from public.departments d
     left join public.categories c on c.id = new.category_id
-    where d.company_id = new.company_id
+    where (new.company_id is null or d.company_id = new.company_id)
       and d.inherits_catalog
       and (c.department_id is null or c.department_id = d.id)
     on conflict (department_id, product_id) do nothing;
@@ -271,8 +283,9 @@ after update of inherits_catalog on public.departments
 for each row when (old.inherits_catalog is distinct from new.inherits_catalog)
 execute function public.sync_department_catalog();
 
+drop trigger if exists products_sync_inheriting_departments on public.products;
 create trigger products_sync_inheriting_departments
-after insert on public.products
+after insert or update of active on public.products
 for each row execute function public.sync_department_catalog();
 
 create or replace function public.validate_product_department_category()
@@ -561,6 +574,10 @@ on public.categories for select to authenticated
 using (
   public.is_super_admin()
   or (
+    company_id is null
+    and (active or public.current_user_role() = 'company_admin')
+  )
+  or (
     company_id = public.current_company_id()
     and (active or public.current_user_role() = 'company_admin')
   )
@@ -568,15 +585,30 @@ using (
 
 create policy "Admins manage categories"
 on public.categories for all to authenticated
-using (public.is_super_admin() or (public.current_user_role() = 'company_admin' and company_id = public.current_company_id()))
-with check (public.is_super_admin() or (public.current_user_role() = 'company_admin' and company_id = public.current_company_id()));
+using (
+  public.is_super_admin()
+  or (
+    public.current_user_role() = 'company_admin'
+    and (company_id is null or company_id = public.current_company_id())
+  )
+)
+with check (
+  public.is_super_admin()
+  or (
+    public.current_user_role() = 'company_admin'
+    and (
+      (company_id is null and department_id is null)
+      or (company_id = public.current_company_id() and department_id is not null)
+    )
+  )
+);
 
 create policy "Company members view products"
 on public.products for select to authenticated
 using (
   public.is_super_admin()
   or (
-    company_id = public.current_company_id()
+    (company_id is null or company_id = public.current_company_id())
     and (active or public.current_user_role() = 'company_admin')
     and (
       public.current_user_role() = 'company_admin'
@@ -585,7 +617,7 @@ using (
       or exists (
         select 1
         from public.department_products dp
-        where dp.company_id = products.company_id
+        where dp.company_id = public.current_company_id()
           and dp.department_id = public.current_department_id()
           and dp.product_id = products.id
       )
@@ -595,8 +627,20 @@ using (
 
 create policy "Admins manage products"
 on public.products for all to authenticated
-using (public.is_super_admin() or (public.current_user_role() = 'company_admin' and company_id = public.current_company_id()))
-with check (public.is_super_admin() or (public.current_user_role() = 'company_admin' and company_id = public.current_company_id()));
+using (
+  public.is_super_admin()
+  or (
+    public.current_user_role() = 'company_admin'
+    and company_id is null
+  )
+)
+with check (
+  public.is_super_admin()
+  or (
+    public.current_user_role() = 'company_admin'
+    and company_id is null
+  )
+);
 
 create policy "Company members view department products"
 on public.department_products for select to authenticated
@@ -652,7 +696,7 @@ begin
     from unnest(p_product_ids) as selected(product_id)
     left join public.products p
       on p.id = selected.product_id
-      and p.company_id = target_company_id
+      and (p.company_id is null or p.company_id = target_company_id)
       and p.active
     left join public.categories c on c.id = p.category_id
     where p.id is null
@@ -740,7 +784,10 @@ with check (
     public.is_super_admin()
     or (
       public.current_user_role() = 'company_admin'
-      and (storage.foldername(name))[1] = public.current_company_id()::text
+      and (
+        (storage.foldername(name))[1] = 'catalog'
+        or (storage.foldername(name))[1] = public.current_company_id()::text
+      )
     )
   )
 );
@@ -751,7 +798,7 @@ using (
   bucket_id = 'product-images'
   and (
     public.is_super_admin()
-    or (storage.foldername(name))[1] = public.current_company_id()::text
+    or public.current_company_id() is not null
   )
 );
 
@@ -761,10 +808,7 @@ using (
   bucket_id = 'product-images'
   and (
     public.is_super_admin()
-    or (
-      public.current_user_role() = 'company_admin'
-      and (storage.foldername(name))[1] = public.current_company_id()::text
-    )
+    or public.current_user_role() = 'company_admin'
   )
 );
 

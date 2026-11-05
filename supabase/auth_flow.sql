@@ -437,7 +437,7 @@ on public.products for select to authenticated
 using (
   public.is_super_admin()
   or (
-    company_id = public.current_company_id()
+    (company_id is null or company_id = public.current_company_id())
     and (active or public.current_user_role() = 'company_admin')
     and (
       public.current_user_role() = 'company_admin'
@@ -446,7 +446,7 @@ using (
       or exists (
         select 1
         from public.department_products dp
-        where dp.company_id = products.company_id
+        where dp.company_id = public.current_company_id()
           and dp.department_id = public.current_department_id()
           and dp.product_id = products.id
       )
