@@ -23,8 +23,8 @@ import {
   UserRound,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
@@ -36,6 +36,7 @@ const colors = {
   line: '#D8E0E8',
   blue: '#1028D8',
   white: '#FFFFFF',
+  green: '#21824E',
   favorite: '#C84016',
 };
 
@@ -92,6 +93,8 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
   const [favorites, setFavorites] = useState(['energy-drink', 'protein-shake']);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartNotice, setCartNotice] = useState('');
+  const cartSwipeWidth = useRef(0);
+  const cartSwipeTranslation = useRef(new Animated.Value(0)).current;
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [cartAddedMessage, setCartAddedMessage] = useState('');
@@ -142,6 +145,26 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
   const cartItems = products.filter((product) => (cart[product.id] ?? 0) > 0);
   const cartCount = Object.values(cart).reduce((total, quantity) => total + quantity, 0);
   const cartTotal = cartItems.reduce((total, product) => total + product.price * cart[product.id], 0);
+  const cartSwipeResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dx > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onPanResponderMove: (_event, gesture) => {
+      const maxTranslation = Math.max(0, cartSwipeWidth.current - 80);
+      cartSwipeTranslation.setValue(Math.max(0, Math.min(gesture.dx, maxTranslation)));
+    },
+    onPanResponderRelease: (_event, gesture) => {
+      const maxTranslation = Math.max(0, cartSwipeWidth.current - 80);
+      if (maxTranslation > 0 && gesture.dx >= maxTranslation * 0.78) {
+        setCartNotice(`Registrering gennemført for ${cartCount} varer (demo).`);
+        setCart({});
+        cartSwipeTranslation.setValue(0);
+        return;
+      }
+      Animated.spring(cartSwipeTranslation, { toValue: 0, useNativeDriver: true, bounciness: 5 }).start();
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(cartSwipeTranslation, { toValue: 0, useNativeDriver: true }).start();
+    },
+  }), [cartCount, cartSwipeTranslation]);
   const title = activeTab === 'products'
     ? 'Produkter'
     : activeTab === 'favorites'
@@ -158,6 +181,7 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
 
   function updateCart(productId: string, change: number) {
     setCartNotice('');
+    cartSwipeTranslation.setValue(0);
     setCart((current) => {
       const quantity = (current[productId] ?? 0) + change;
       if (quantity <= 0) {
@@ -277,17 +301,18 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
               <ChevronLeft color={colors.blue} size={25} strokeWidth={2.5} />
               <Text style={styles.cartBackText}>Produkter</Text>
             </Pressable>
-            <Text style={styles.cartPageTitle}>Kurv</Text>
-            <View style={styles.cartHeaderSpacer} />
           </View>
 
-          {demoMode && <Text style={styles.demoLabel}>DEMO · EKSEMPELDATA</Text>}
+          <View style={styles.cartTitleRow}>
+            <Text style={styles.cartPageTitle}>Kurv</Text>
+            {cartCount > 0 && <Text style={styles.cartCountLabel}>{cartCount} varer</Text>}
+          </View>
 
           {cartItems.length === 0 ? (
             <View style={styles.cartEmptyState}>
-              <ShoppingBag color={colors.blue} size={38} strokeWidth={1.8} />
-              <Text style={styles.cartEmptyTitle}>Kurven er tom</Text>
-              <Text style={styles.emptyText}>Vælg et produkt for at lægge det i kurven.</Text>
+              {cartNotice ? <Check color={colors.green} size={40} strokeWidth={2.5} /> : <ShoppingBag color={colors.blue} size={38} strokeWidth={1.8} />}
+              <Text style={styles.cartEmptyTitle}>{cartNotice ? 'Registrering gennemført' : 'Kurven er tom'}</Text>
+              <Text style={styles.emptyText}>{cartNotice || 'Vælg et produkt for at lægge det i kurven.'}</Text>
               <Pressable accessibilityRole="button" onPress={() => setShowCart(false)} style={styles.cartContinueButton}>
                 <Text style={styles.cartContinueText}>Se produkter</Text>
               </Pressable>
@@ -295,36 +320,52 @@ export function ProductCatalog({ demoMode = false }: ProductCatalogProps) {
           ) : (
             <>
               <ScrollView style={styles.cartPageItems} contentContainerStyle={styles.cartPageList} showsVerticalScrollIndicator={false}>
-                {cartItems.map((product) => (
-                  <View key={product.id} style={styles.cartPageRow}>
-                    <View style={[styles.cartPageProductIcon, { backgroundColor: product.color }]}>
-                      <CupSoda color="#142A8F" size={23} strokeWidth={1.8} />
+                <View style={styles.cartCard}>
+                  {cartItems.map((product, index) => (
+                    <View key={product.id} style={[styles.cartPageRow, index < cartItems.length - 1 && styles.cartPageRowDivider]}>
+                      <View style={[styles.cartPageProductIcon, { backgroundColor: product.color }]}>
+                        <CupSoda color="#142A8F" size={23} strokeWidth={1.8} />
+                      </View>
+                      <View style={styles.cartPageProductInfo}>
+                        <Text numberOfLines={1} style={styles.productName}>{product.name}</Text>
+                        <Text style={styles.productDetails}>{product.price} kr pr. stk.</Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={cart[product.id] > 1 ? `Fjern én ${product.name}` : `Fjern ${product.name} fra kurven`}
+                        onPress={() => updateCart(product.id, -1)}
+                        style={styles.cartQuantityButton}>
+                        {cart[product.id] > 1
+                          ? <Minus color={colors.ink} size={17} />
+                          : <Trash2 color="#C52C29" size={17} />}
+                      </Pressable>
+                      <Text style={styles.cartPageQuantity}>{cart[product.id]}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Tilføj én ${product.name}`} onPress={() => updateCart(product.id, 1)} style={styles.cartPlusButton}>
+                        <Plus color={colors.white} size={18} strokeWidth={2.2} />
+                      </Pressable>
+                      <Text style={styles.cartPageLineTotal}>{product.price * cart[product.id]} kr</Text>
                     </View>
-                    <View style={styles.cartPageProductInfo}>
-                      <Text numberOfLines={1} style={styles.productName}>{product.name}</Text>
-                      <Text style={styles.productDetails}>{product.size} · {product.price} kr pr. stk.</Text>
-                    </View>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Fjern én ${product.name}`} onPress={() => updateCart(product.id, -1)} style={styles.quantityButton}>
-                      <Minus color={colors.ink} size={17} />
-                    </Pressable>
-                    <Text style={styles.cartPageQuantity}>{cart[product.id]}</Text>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Tilføj én ${product.name}`} onPress={() => updateCart(product.id, 1)} style={styles.quantityButton}>
-                      <Plus color={colors.ink} size={17} />
-                    </Pressable>
+                  ))}
+                  <View style={styles.cartPageTotalRow}>
+                    <Text style={styles.cartPageTotalLabel}>I alt</Text>
+                    <Text style={styles.cartPageTotalPrice}>{cartTotal} kr</Text>
                   </View>
-                ))}
+                </View>
               </ScrollView>
 
               <View style={styles.cartPageFooter}>
-                <View style={styles.cartPageTotalRow}>
-                  <Text style={styles.cartPageTotalLabel}>I alt · {cartCount} varer</Text>
-                  <Text style={styles.cartPageTotalPrice}>{cartTotal} kr</Text>
+                <View
+                  onLayout={(event) => { cartSwipeWidth.current = event.nativeEvent.layout.width; }}
+                  style={styles.cartSwipeTrack}>
+                  <Text pointerEvents="none" style={styles.cartSwipeLabel}>Swipe for at registrere · {cartCount} varer</Text>
+                  <Animated.View
+                    accessibilityRole="button"
+                    accessibilityLabel={`Swipe for at registrere ${cartCount} varer`}
+                    {...cartSwipeResponder.panHandlers}
+                    style={[styles.cartSwipeThumb, { transform: [{ translateX: cartSwipeTranslation }] }]}>
+                    <ChevronRight color={colors.white} size={26} strokeWidth={2.5} />
+                  </Animated.View>
                 </View>
-                <Pressable accessibilityRole="button" onPress={() => setCartNotice('Demo: bestillingen er ikke sendt.')} style={({ pressed }) => [styles.cartCheckoutButton, pressed && styles.pressed]}>
-                  <Text style={styles.cartCheckoutText}>Fortsæt</Text>
-                </Pressable>
-                {!!cartNotice && <Text accessibilityRole="status" style={styles.cartDemoNotice}>{cartNotice}</Text>}
-                <Text style={styles.demoNote}>Kurven bruger mock-data. Ingen bestilling bliver sendt.</Text>
               </View>
             </>
           )}
@@ -827,35 +868,43 @@ function PasswordRequirement({ label, passed }: PasswordRequirementProps) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center' },
-  cartPage: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
-  cartPageHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  cartPage: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 18 },
+  cartPageHeader: { minHeight: 48, justifyContent: 'center', marginBottom: 14 },
   cartBackButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 4 },
   cartBackText: { color: colors.blue, fontSize: 14, fontWeight: '600' },
-  cartPageTitle: { color: colors.ink, fontSize: 22, fontWeight: '700' },
-  cartHeaderSpacer: { width: 76 },
+  cartTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 26 },
+  cartPageTitle: { color: colors.ink, fontSize: 40, lineHeight: 48, fontWeight: '700' },
+  cartCountLabel: { color: colors.muted, fontSize: 15, fontWeight: '600' },
   cartEmptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 16 },
   cartEmptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '700' },
   cartContinueButton: { minHeight: 48, justifyContent: 'center', marginTop: 10, paddingHorizontal: 24, borderRadius: 24, backgroundColor: colors.blue },
   cartContinueText: { color: colors.white, fontSize: 14, fontWeight: '600' },
   cartPageItems: { flex: 1 },
-  cartPageList: { gap: 10, paddingVertical: 8 },
-  cartPageRow: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, borderRadius: 17, backgroundColor: colors.white },
-  cartPageProductIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 13 },
-  cartPageProductInfo: { flex: 1, minWidth: 0, gap: 3, paddingLeft: 3 },
-  cartPageQuantity: { minWidth: 18, color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  cartPageFooter: { gap: 12, paddingTop: 14 },
-  cartPageTotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cartPageList: { paddingBottom: 10 },
+  cartCard: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14, borderRadius: 24, backgroundColor: colors.white },
+  cartPageRow: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cartPageRowDivider: { borderBottomWidth: 1, borderBottomColor: '#E8EDF2' },
+  cartPageProductIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  cartPageProductInfo: { flex: 1, minWidth: 48, gap: 3 },
+  cartPageQuantity: { minWidth: 18, color: colors.ink, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  cartQuantityButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D5DDE5', borderRadius: 22, backgroundColor: colors.white },
+  cartPlusButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.blue },
+  cartPageLineTotal: { width: 48, color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'right' },
+  cartPageFooter: { paddingTop: 12 },
+  cartSwipeTrack: { height: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingLeft: 78, paddingRight: 12, borderRadius: 40, backgroundColor: '#E2E7FF', overflow: 'hidden' },
+  cartSwipeLabel: { flex: 1, color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: '600', textAlign: 'center' },
+  cartSwipeThumb: { position: 'absolute', top: 5, left: 5, width: 70, height: 70, alignItems: 'center', justifyContent: 'center', borderRadius: 35, backgroundColor: colors.blue },
+  cartPageTotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#E8EDF2' },
   cartPageTotalLabel: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  cartPageTotalPrice: { color: colors.ink, fontSize: 18, fontWeight: '700' },
-  cartCheckoutButton: { minHeight: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 28, backgroundColor: colors.blue },
-  cartCheckoutText: { color: colors.white, fontSize: 16, fontWeight: '600' },
-  cartDemoNotice: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  cartPageTotalPrice: { color: colors.ink, fontSize: 24, fontWeight: '700' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14 },
   pageTitle: { color: colors.ink, fontSize: 28, lineHeight: 34, fontWeight: '700' },
   cartButton: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
   cartBadge: { position: 'absolute', top: -1, right: -1, minWidth: 19, height: 19, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.blue },
   cartBadgeText: { color: colors.white, fontSize: 10, fontWeight: '700' },
   demoLabel: { paddingHorizontal: 20, paddingBottom: 7, color: colors.blue, fontSize: 10, fontWeight: '700' },
+  demoNote: { color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  pressed: { opacity: 0.72 },
   content: { flex: 1, paddingHorizontal: 18 },
   productContentScroll: { flex: 1 },
   productContent: { flexGrow: 0 },
