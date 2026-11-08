@@ -79,7 +79,7 @@ function ProductModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsedPrice = Number(price);
-    if (!name.trim() || !unit.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0) return;
+    if (!name.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0) return;
     if (!product && !image) {
       setError('Upload et produktbillede.');
       return;
@@ -182,7 +182,6 @@ function ProductModal({
               <label htmlFor="frigo-product-unit">Enhed</label>
               <input
                 id="frigo-product-unit"
-                required
                 maxLength={40}
                 value={unit}
                 onChange={(event) => setUnit(event.currentTarget.value)}
@@ -745,7 +744,7 @@ export default function ProductManagement() {
                             </span>
                             <span className="frigo-product-name">
                               <strong>{product.name}</strong>
-                              <small>{product.unit || '—'}</small>
+                              <small>{product.unit || ''}</small>
                             </span>
                           </div>
                         </td>
