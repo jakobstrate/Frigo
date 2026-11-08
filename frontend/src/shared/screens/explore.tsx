@@ -1,6 +1,6 @@
 import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { supabase } from '@/backend/src/supabase';
 import { ProductCatalog } from '@/frontend/src/shared/screens/product-catalog';
