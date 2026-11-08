@@ -17,7 +17,7 @@ The website runs at http://localhost:8082. `npm run web` is an alias for `npm ru
 
 ## Creating companies
 
-Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/auth_flow.sql`, `supabase/update_company_details.sql`, `supabase/manage_department_products.sql`, and `supabase/data_retention.sql` to the Supabase project in that order. Then deploy the Edge Functions:
+Companies can be created without a company administrator, or with an optional administrator invitation by providing both the administrator name and email. Apply `supabase/schema.sql`, `supabase/add_product_unit.sql`, `supabase/auth_flow.sql`, `supabase/share_product_catalog.sql`, `supabase/update_company_details.sql`, `supabase/manage_department_products.sql`, and `supabase/data_retention.sql` to the Supabase project in that order. Then deploy the Edge Functions:
 
 ```bash
 supabase functions deploy create-company
@@ -36,6 +36,10 @@ Deleting a profile or company blocks account sign-in and soft-deletes the profil
 The department page lets Superadmins select a company and manage its departments, while company admins are restricted to their own company. Department product selections are saved through `set_department_products` so the product list is replaced atomically.
 
 For an existing Supabase project, apply `supabase/manage_department_products.sql` to add the department product-selection function.
+
+For an existing Supabase project, apply `supabase/add_product_unit.sql` before using product management to add the product unit field.
+
+`supabase/share_product_catalog.sql` makes product and category data shared across companies. Existing products are preserved as separate catalog entries; the migration does not merge products with matching names. Categories with the same name are consolidated. Department-level product availability remains company-specific.
 
 The function uses Supabase's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets, which are available to deployed functions by default. Invitation links open the app's `/invite` page, where the administrator sets a password. Add the hosted app's `/invite` URL (and any local development invite URL) to Supabase Auth's allowed redirect URLs. Set the `INVITE_REDIRECT_URL` function secret if the invite should always return to a specific app URL.
 

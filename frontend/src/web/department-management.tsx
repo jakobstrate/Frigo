@@ -313,13 +313,13 @@ export default function DepartmentManagement({
         supabase
           .from('products')
           .select('id, name, category_id')
-          .eq('company_id', selectedCompanyId)
+          .or(`company_id.is.null,company_id.eq.${selectedCompanyId}`)
           .eq('active', true)
           .order('name'),
         supabase
           .from('categories')
           .select('id, name, department_id')
-          .eq('company_id', selectedCompanyId)
+          .or(`company_id.is.null,company_id.eq.${selectedCompanyId}`)
           .order('name'),
         supabase
           .from('department_products')
