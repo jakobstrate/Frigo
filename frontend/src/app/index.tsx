@@ -25,7 +25,6 @@ export default function LoginScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricError, setBiometricError] = useState('');
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
-  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   async function handleLoginSuccess(destination: Href) {
     try {
@@ -153,15 +152,10 @@ export default function LoginScreen() {
 
             <Pressable
               accessibilityRole="button"
-              onPress={() => setShowPasswordHelp((shown) => !shown)}
+              onPress={() => router.push('/forgot-password' as Href)}
               style={styles.forgotButton}>
               <Text style={styles.forgotText}>Glemt adgangskode?</Text>
             </Pressable>
-            {showPasswordHelp && (
-              <Text accessibilityRole="text" style={styles.passwordHelpText}>
-                Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
-              </Text>
-            )}
           </View>
 
           <View style={styles.actions}>
@@ -243,7 +237,6 @@ const styles = StyleSheet.create({
   noticeText: { color: '#192A8C' },
   forgotButton: { alignSelf: 'flex-end', minHeight: 34, justifyContent: 'center', marginTop: 2 },
   forgotText: { color: colors.white, fontSize: 14, fontWeight: '600' },
-  passwordHelpText: { color: '#DDE3FF', fontSize: 12, lineHeight: 18, textAlign: 'right' },
   actions: { gap: 12 },
   primaryButton: { height: 58, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: colors.ink, fontSize: 17, fontWeight: '700' },

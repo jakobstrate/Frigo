@@ -262,7 +262,7 @@ begin
     end if;
   elsif tg_table_name = 'products' and new.active then
     insert into public.department_products (company_id, department_id, product_id, is_inherited)
-    select new.company_id, d.id, new.id, true
+    select d.company_id, d.id, new.id, true
     from public.departments d
     left join public.categories c on c.id = new.category_id
     where (new.company_id is null or d.company_id = new.company_id)
