@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ForgotPasswordFlow } from '@/frontend/src/app/forgot-password-flow';
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
 import { useLogin } from '@/frontend/src/hooks/use-login';
 
@@ -26,15 +25,12 @@ export default function LoginScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricError, setBiometricError] = useState('');
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
-  const [isMockLoading, setIsMockLoading] = useState(false);
-  const [isMockBiometricFlow, setIsMockBiometricFlow] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
-  async function handleLoginSuccess(destination: Href, isMockFlow = false) {
+  async function handleLoginSuccess(destination: Href) {
     try {
-      setIsMockBiometricFlow(isMockFlow);
       const setupChoice = await SecureStore.getItemAsync(biometricSetupKey);
-      if (setupChoice && !isMockFlow) {
+      if (setupChoice) {
         router.replace(destination);
         return;
       }
@@ -55,7 +51,7 @@ export default function LoginScreen() {
             : 'biometrisk login';
 
       setBiometricName(label);
-      setBiometricAvailable(isMockFlow || (hasHardware && isEnrolled && (supportsFace || supportsFingerprint)));
+      setBiometricAvailable(hasHardware && isEnrolled && (supportsFace || supportsFingerprint));
       setBiometricError('');
       setBiometricDestination(destination);
     } catch {
@@ -71,7 +67,6 @@ export default function LoginScreen() {
       await SecureStore.setItemAsync(biometricSetupKey, enabled ? 'enabled' : 'skipped');
       const destination = biometricDestination;
       setBiometricDestination(null);
-      setIsMockBiometricFlow(false);
       router.replace(destination);
     } catch {
       setBiometricError('Vi kunne ikke gemme dit valg. Prøv igen.');
@@ -86,15 +81,6 @@ export default function LoginScreen() {
     setIsBiometricLoading(true);
     setBiometricError('');
     try {
-      if (isMockBiometricFlow) {
-        await SecureStore.setItemAsync(biometricSetupKey, 'enabled');
-        const destination = biometricDestination;
-        setBiometricDestination(null);
-        setIsMockBiometricFlow(false);
-        if (destination) router.replace(destination);
-        return;
-      }
-
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Aktivér ${biometricName} til FriGo`,
         cancelLabel: 'Ikke nu',
@@ -116,25 +102,7 @@ export default function LoginScreen() {
     }
   }
 
-  async function handleMockLogin() {
-    if (isMockLoading) return;
-
-    setIsMockLoading(true);
-    try {
-      await SecureStore.deleteItemAsync(biometricSetupKey);
-      await handleLoginSuccess('/mock-home' as Href, true);
-    } catch {
-      router.replace('/mock-home' as Href);
-    } finally {
-      setIsMockLoading(false);
-    }
-  }
-
   const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin(handleLoginSuccess);
-
-  if (showForgotPassword) {
-    return <ForgotPasswordFlow onClose={() => setShowForgotPassword(false)} />;
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -185,10 +153,15 @@ export default function LoginScreen() {
 
             <Pressable
               accessibilityRole="button"
-              onPress={() => setShowForgotPassword(true)}
+              onPress={() => setShowPasswordHelp((shown) => !shown)}
               style={styles.forgotButton}>
               <Text style={styles.forgotText}>Glemt adgangskode?</Text>
             </Pressable>
+            {showPasswordHelp && (
+              <Text accessibilityRole="text" style={styles.passwordHelpText}>
+                Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
+              </Text>
+            )}
           </View>
 
           <View style={styles.actions}>
@@ -207,16 +180,6 @@ export default function LoginScreen() {
               <Text style={styles.secondaryButtonText}>Ny her? Opret profil</Text>
             </Pressable>
 
-            <Pressable
-              accessibilityRole="button"
-              disabled={isMockLoading}
-              onPress={() => { void handleMockLogin(); }}
-              style={({ pressed }) => [styles.mockLoginButton, pressed && styles.pressed, isMockLoading && styles.disabled]}>
-              {isMockLoading
-                ? <ActivityIndicator color={colors.white} />
-                : <Text style={styles.mockLoginText}>Log ind med demo</Text>}
-            </Pressable>
-            <Text style={styles.mockLoginNote}>Bruger kun fiktive data. Ingen konto oprettes.</Text>
           </View>
         </View>
       </ScrollView>
@@ -237,11 +200,6 @@ export default function LoginScreen() {
                   : `Der er ikke konfigureret ${biometricName} på telefonen. Slå det til i telefonens indstillinger.`}
               </Text>
             )}
-            <Text style={styles.biometricDemoNote}>
-              {isMockBiometricFlow
-                ? 'Demo-login: aktivering simuleres, og der bruges ikke rigtig biometri.'
-                : 'Demo: dit valg gemmes på telefonen, men biometrisk login bruges ikke endnu.'}
-            </Text>
             {!!biometricError && <Text accessibilityRole="alert" style={styles.biometricError}>{biometricError}</Text>}
             {biometricAvailable && (
               <Pressable
@@ -285,14 +243,12 @@ const styles = StyleSheet.create({
   noticeText: { color: '#192A8C' },
   forgotButton: { alignSelf: 'flex-end', minHeight: 34, justifyContent: 'center', marginTop: 2 },
   forgotText: { color: colors.white, fontSize: 14, fontWeight: '600' },
+  passwordHelpText: { color: '#DDE3FF', fontSize: 12, lineHeight: 18, textAlign: 'right' },
   actions: { gap: 12 },
   primaryButton: { height: 58, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: colors.ink, fontSize: 17, fontWeight: '700' },
   secondaryButton: { height: 58, borderRadius: 32, borderWidth: 2, borderColor: '#A9B8FF', backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.white, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  mockLoginButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  mockLoginText: { color: '#DDE3FF', fontSize: 14, fontWeight: '600' },
-  mockLoginNote: { color: '#DDE3FF', fontSize: 11, lineHeight: 16, textAlign: 'center' },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.52 },
   modalBackdrop: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, backgroundColor: 'rgba(10, 20, 77, 0.48)' },
@@ -301,7 +257,6 @@ const styles = StyleSheet.create({
   biometricTitle: { color: '#1A2344', fontSize: 22, lineHeight: 29, fontWeight: '700', textAlign: 'center' },
   biometricDescription: { color: '#687487', fontSize: 15, lineHeight: 22, textAlign: 'center' },
   biometricUnavailable: { color: '#687487', fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  biometricDemoNote: { color: '#687487', fontSize: 11, lineHeight: 16, textAlign: 'center' },
   biometricError: { width: '100%', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: '#8F1D25', backgroundColor: '#FFE7E6', fontSize: 13, lineHeight: 18 },
   biometricPrimaryButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 25, backgroundColor: colors.ink },
   biometricPrimaryText: { color: colors.white, fontSize: 15, fontWeight: '700' },
