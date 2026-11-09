@@ -9,6 +9,7 @@ import CompanyManagement from '@/frontend/src/web/company-management';
 import DepartmentManagement from '@/frontend/src/web/department-management';
 import AdminOverview from '@/frontend/src/web/admin-overview';
 import ProductManagement from '@/frontend/src/web/product-management';
+import RegistrationManagement from '@/frontend/src/web/registration-management';
 import UserManagement from '@/frontend/src/web/user-management';
 
 type AdminProfile = {
@@ -105,6 +106,15 @@ function AdminPageContent({
 
   if (page === 'products') {
     return <ProductManagement />;
+  }
+
+  if (page === 'registrations') {
+    return (
+      <RegistrationManagement
+        role={profile.role}
+        companyId={profile.company_id}
+      />
+    );
   }
 
   return (
@@ -292,7 +302,7 @@ export default function AdminDashboard() {
         </div>
       </aside>
       <main className="frigo-admin-main">
-        {activePage !== 'products' && (
+        {activePage !== 'products' && activePage !== 'registrations' && (
           <header className="frigo-admin-page-header">
             <div>
               <p className="frigo-admin-eyebrow">FRIGO ADMINISTRATION</p>
