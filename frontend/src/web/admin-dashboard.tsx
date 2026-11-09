@@ -7,6 +7,7 @@ import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
 import CompanyManagement from '@/frontend/src/web/company-management';
 import DepartmentManagement from '@/frontend/src/web/department-management';
+import AdminOverview from '@/frontend/src/web/admin-overview';
 import ProductManagement from '@/frontend/src/web/product-management';
 import UserManagement from '@/frontend/src/web/user-management';
 
@@ -68,12 +69,10 @@ function AdminPageContent({
   page,
   profile,
   companyName,
-  pendingRequests,
 }: {
   page: AdminPageId;
   profile: AdminProfile;
   companyName: string;
-  pendingRequests: number;
 }) {
   const pageDetails = getAdminPages(profile.role).find((item) => item.id === page);
   if (!pageDetails) return null;
@@ -83,31 +82,7 @@ function AdminPageContent({
   }
 
   if (page === 'overview') {
-    return (
-      <>
-        <div className="frigo-admin-summary-grid">
-          <article className="frigo-admin-summary-card">
-            <span className="frigo-admin-summary-label">Din adgang</span>
-            <strong>{profile.role === 'super_admin' ? 'Superadmin' : 'Virksomhedsadmin'}</strong>
-            <span>Aktiv administrator</span>
-          </article>
-          <article className="frigo-admin-summary-card">
-            <span className="frigo-admin-summary-label">Virksomhed</span>
-            <strong>{companyName || (profile.role === 'super_admin' ? 'Alle virksomheder' : 'Ikke tilknyttet')}</strong>
-            <span>{profile.role === 'super_admin' ? 'Global adgang' : 'Din tilknytning'}</span>
-          </article>
-          <article className="frigo-admin-summary-card">
-            <span className="frigo-admin-summary-label">Afventende anmodninger</span>
-            <strong>{pendingRequests}</strong>
-            <span>Adgangsanmodninger til gennemgang</span>
-          </article>
-        </div>
-        <section className="frigo-admin-panel">
-          <h2>Velkommen til Frigo</h2>
-          <p>Brug menuen til venstre for at administrere de områder, du har adgang til.</p>
-        </section>
-      </>
-    );
+    return <AdminOverview />;
   }
 
   if (page === 'companies') {
@@ -332,7 +307,6 @@ export default function AdminDashboard() {
             page={activePage}
             profile={profile}
             companyName={companyName}
-            pendingRequests={pendingRequests}
           />
         )}
       </main>
