@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
 
-export function useLogin() {
+export function useLogin({ allowEmployeeAccess = true }: { allowEmployeeAccess?: boolean } = {}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,7 +37,14 @@ export function useLogin() {
         return;
       }
 
-      if (profile.status !== 'active') {
+      if (!allowEmployeeAccess && profile.role === 'employee') {
+        const { error: signOutError } = await supabase.auth.signOut();
+        setError(
+          signOutError
+            ? 'Medarbejdere har ikke adgang til at logge ind på administration. Brug Frigo-appen i stedet.'
+            : 'Medarbejdere har ikke adgang til at logge ind på administration. Brug Frigo-appen i stedet.',
+        );
+      } else if (profile.status !== 'active') {
         router.replace('/pending' as Href);
       } else if (profile.role === 'super_admin' || profile.role === 'company_admin') {
         router.replace('/admin-review' as Href);

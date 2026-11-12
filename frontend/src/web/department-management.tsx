@@ -522,9 +522,9 @@ export default function DepartmentManagement({
   return (
     <>
       <p className="frigo-department-description">Vælg hvilke produkter medarbejderne i hver afdeling kan registrere.</p>
-      <section className="frigo-department-company-selector" aria-label="Virksomhed">
-        <label htmlFor="frigo-department-company">Virksomhed</label>
-        {role === 'super_admin' ? (
+      {role === 'super_admin' && (
+        <section className="frigo-department-company-selector" aria-label="Virksomhed">
+          <label htmlFor="frigo-department-company">Virksomhed</label>
           <select
             id="frigo-department-company"
             value={selectedCompanyId ?? ''}
@@ -543,10 +543,8 @@ export default function DepartmentManagement({
             {companies.length === 0 && <option value="">Ingen virksomheder</option>}
             {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
           </select>
-        ) : (
-          <span className="frigo-department-company-locked">{companyLabel || 'Din virksomhed'}</span>
-        )}
-      </section>
+        </section>
+      )}
 
       {loadError && <p className="frigo-admin-error" role="alert">Afdelinger kunne ikke indlæses: {loadError}</p>}
       {actionError && !departmentModal && !departmentForProducts && !departmentToDelete && (

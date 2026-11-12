@@ -5,7 +5,9 @@ import { useLogin } from '@/frontend/src/hooks/use-login';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
 export default function WebLoginPage() {
-  const { email, setEmail, password, setPassword, error, isLoading, handleLogin } = useLogin();
+  const { email, setEmail, password, setPassword, error, isLoading, handleLogin } = useLogin({
+    allowEmployeeAccess: false,
+  });
   const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   return (
