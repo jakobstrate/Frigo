@@ -146,6 +146,66 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
+    if (body.action === 'restore') {
+      if (actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can restore deleted users.' });
+      }
+
+      const userId = typeof body.userId === 'string' ? body.userId : '';
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+        return jsonResponse(400, { error: 'Choose a valid user.' });
+      }
+
+      const { data: target, error: targetError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, status, company_id')
+        .eq('id', userId)
+        .maybeSingle();
+      if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
+      if (!target || target.status !== 'deleted') {
+        return jsonResponse(404, { error: 'The deleted user does not exist or is no longer available to restore.' });
+      }
+
+      if (target.company_id !== null) {
+        const { data: company, error: companyError } = await supabaseAdmin
+          .from('companies')
+          .select('status')
+          .eq('id', target.company_id)
+          .maybeSingle();
+        if (companyError) return jsonResponse(500, { error: `Could not load the company: ${companyError.message}` });
+        if (!company || company.status !== 'active') {
+          return jsonResponse(400, { error: "Reactivate the user's company before restoring this account." });
+        }
+      }
+
+      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: 'none',
+      });
+      if (authUpdateError) {
+        return jsonResponse(400, { error: `Could not restore the login account: ${authUpdateError.message}` });
+      }
+
+      const { data: restoredProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ status: 'active', deleted_at: null })
+        .eq('id', userId)
+        .eq('status', 'deleted')
+        .select('id')
+        .maybeSingle();
+      if (profileError || !restoredProfile) {
+        const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+          ban_duration: '876000h',
+        });
+        const rollbackMessage = rollbackError ? ` Login rollback also failed: ${rollbackError.message}` : '';
+        const message = profileError?.message ?? 'The deleted profile is no longer available.';
+        return jsonResponse(profileError ? 400 : 404, {
+          error: `Could not restore the user profile: ${message}.${rollbackMessage}`,
+        });
+      }
+
+      return jsonResponse(200, { userId, status: 'active' });
+    }
+
     if (body.action === 'create') {
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
