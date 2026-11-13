@@ -4,9 +4,11 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import {
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Clock3,
   CupSoda,
   Heart,
@@ -64,6 +66,7 @@ type PurchaseHistoryItem = {
   id: number;
   product_name: string;
   amount: number;
+  unit_price: number;
   total_price: number;
   created_at: string;
 };
@@ -78,6 +81,61 @@ const productColors = ['#E1E9FF', '#FCE4E1', '#E2F3E5', '#FFF0D7', '#DFF1F7', '#
 
 const biometricSetupKey = 'frigo-biometric-setup';
 
+function getPurchasePeriodStart(date: Date) {
+  return date.getDate() >= 21
+    ? new Date(date.getFullYear(), date.getMonth(), 21)
+    : new Date(date.getFullYear(), date.getMonth() - 1, 21);
+}
+
+function formatDayAndMonth(date: Date) {
+  return date.toLocaleDateString('da-DK', { day: 'numeric', month: 'short' }).replace(/\./g, '');
+}
+
+function formatPurchasePeriod(start: Date, end: Date) {
+  if (start.getFullYear() !== end.getFullYear()) {
+    return `${formatDayAndMonth(start)} ${start.getFullYear()} – ${formatDayAndMonth(end)} ${end.getFullYear()}`;
+  }
+  return `${formatDayAndMonth(start)} – ${formatDayAndMonth(end)} ${end.getFullYear()}`;
+}
+
+function normalizeDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function shiftCalendarMonth(date: Date, offset: number) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+}
+
+function formatCalendarMonth(date: Date) {
+  const label = date.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function formatPickerDate(date: Date) {
+  return date.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '');
+}
+
+function getCalendarWeeks(month: Date) {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const leadingDays = (firstDay.getDay() + 6) % 7;
+  const cells: Array<Date | null> = [
+    ...Array.from({ length: leadingDays }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index + 1)),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, index) => cells.slice(index * 7, index * 7 + 7));
+}
+
+function getPurchaseDayKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function formatPurchaseDay(date: Date) {
+  const label = date.toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'short' }).replace(/\./g, '');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function ProductCatalog() {
   const safeAreaInsets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<CatalogTab>('products');
@@ -87,6 +145,23 @@ export function ProductCatalog() {
   const [categories, setCategories] = useState<string[]>(['Alle']);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
+  const [historyPeriodStart, setHistoryPeriodStart] = useState(() => getPurchasePeriodStart(new Date()));
+  const [historyPeriodEnd, setHistoryPeriodEnd] = useState(() => {
+    const start = getPurchasePeriodStart(new Date());
+    return new Date(start.getFullYear(), start.getMonth() + 1, 20);
+  });
+  const [draftPeriodStart, setDraftPeriodStart] = useState(() => getPurchasePeriodStart(new Date()));
+  const [draftPeriodEnd, setDraftPeriodEnd] = useState(() => {
+    const start = getPurchasePeriodStart(new Date());
+    return new Date(start.getFullYear(), start.getMonth() + 1, 20);
+  });
+  const [activePeriodField, setActivePeriodField] = useState<'from' | 'to'>('from');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const start = getPurchasePeriodStart(new Date());
+    return new Date(start.getFullYear(), start.getMonth(), 1);
+  });
+  const [showHistoryPeriodPicker, setShowHistoryPeriodPicker] = useState(false);
+  const [showHistoryDetails, setShowHistoryDetails] = useState(false);
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
@@ -182,10 +257,10 @@ export function ProductCatalog() {
           supabase.from('favorites').select('product_id').eq('user_id', user.id),
           supabase
             .from('purchases')
-            .select('id, product_name, amount, total_price, created_at')
+            .select('id, product_name, amount, unit_price, total_price, created_at')
             .eq('purchaser_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(30),
+            .limit(500),
         ]);
 
         if (!isActive) return;
@@ -259,6 +334,28 @@ export function ProductCatalog() {
   const cartItems = products.filter((product) => (cart[product.id] ?? 0) > 0);
   const cartCount = Object.values(cart).reduce((total, quantity) => total + quantity, 0);
   const cartTotal = cartItems.reduce((total, product) => total + product.price * cart[product.id], 0);
+  const selectedHistory = useMemo(() => {
+    const inclusiveEnd = new Date(historyPeriodEnd.getFullYear(), historyPeriodEnd.getMonth(), historyPeriodEnd.getDate() + 1);
+    return purchaseHistory.filter((item) => {
+      const createdAt = new Date(item.created_at);
+      return createdAt >= historyPeriodStart && createdAt < inclusiveEnd;
+    });
+  }, [historyPeriodEnd, historyPeriodStart, purchaseHistory]);
+  const historyPeriodTotal = selectedHistory.reduce((total, item) => total + Number(item.total_price), 0);
+  const historyPeriodItemCount = selectedHistory.reduce((total, item) => total + item.amount, 0);
+  const historyRegistrationCount = new Set(selectedHistory.map((item) => item.created_at)).size;
+  const groupedHistory = useMemo(() => {
+    const grouped = new Map<string, { date: Date; purchases: PurchaseHistoryItem[] }>();
+    for (const purchase of selectedHistory) {
+      const date = new Date(purchase.created_at);
+      const key = getPurchaseDayKey(date);
+      const day = grouped.get(key);
+      if (day) day.purchases.push(purchase);
+      else grouped.set(key, { date, purchases: [purchase] });
+    }
+    return [...grouped.values()];
+  }, [selectedHistory]);
+  const calendarMonths = useMemo(() => [calendarMonth, shiftCalendarMonth(calendarMonth, 1)], [calendarMonth]);
   const cartSwipeResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_event, gesture) => gesture.dx > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
     onPanResponderMove: (_event, gesture) => {
@@ -357,7 +454,7 @@ export function ProductCatalog() {
       setCartNotice(`Registrering gennemført for ${itemCount} varer.`);
       const { data: history, error: historyError } = await supabase
         .from('purchases')
-        .select('id, product_name, amount, total_price, created_at')
+        .select('id, product_name, amount, unit_price, total_price, created_at')
         .eq('purchaser_id', employeeProfile.id)
         .order('created_at', { ascending: false })
         .limit(30);
@@ -456,6 +553,54 @@ export function ProductCatalog() {
   function submitDeleteRequest() {
     setShowDeleteConfirm(false);
     setProfileNotice('Kontakt din virksomhedsadministrator for at få slettet din profil.');
+  }
+
+  function openHistoryPeriodPicker() {
+    setDraftPeriodStart(historyPeriodStart);
+    setDraftPeriodEnd(historyPeriodEnd);
+    setCalendarMonth(new Date(historyPeriodStart.getFullYear(), historyPeriodStart.getMonth(), 1));
+    setActivePeriodField('from');
+    setShowHistoryPeriodPicker(true);
+  }
+
+  function setHistoryPreset(preset: 'standard' | 'last-seven-days' | 'this-year') {
+    const today = normalizeDate(new Date());
+    const start = preset === 'standard'
+      ? getPurchasePeriodStart(today)
+      : preset === 'last-seven-days'
+        ? new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
+        : new Date(today.getFullYear(), 0, 1);
+    const end = preset === 'standard'
+      ? new Date(start.getFullYear(), start.getMonth() + 1, 20)
+      : today;
+    setDraftPeriodStart(start);
+    setDraftPeriodEnd(end);
+    setCalendarMonth(new Date(start.getFullYear(), start.getMonth(), 1));
+  }
+
+  function selectHistoryDate(date: Date) {
+    const selectedDate = normalizeDate(date);
+    if (activePeriodField === 'from') {
+      setDraftPeriodStart(selectedDate);
+      if (selectedDate > draftPeriodEnd) setDraftPeriodEnd(selectedDate);
+      setActivePeriodField('to');
+      return;
+    }
+    if (selectedDate < draftPeriodStart) setDraftPeriodStart(selectedDate);
+    else setDraftPeriodEnd(selectedDate);
+  }
+
+  function applyHistoryPeriod() {
+    const start = normalizeDate(draftPeriodStart);
+    const end = normalizeDate(draftPeriodEnd);
+    setHistoryPeriodStart(start <= end ? start : end);
+    setHistoryPeriodEnd(start <= end ? end : start);
+    setShowHistoryPeriodPicker(false);
+  }
+
+  function isInDraftHistoryPeriod(date: Date) {
+    const value = normalizeDate(date).getTime();
+    return value >= normalizeDate(draftPeriodStart).getTime() && value <= normalizeDate(draftPeriodEnd).getTime();
   }
 
   if (showCart) {
@@ -607,6 +752,75 @@ export function ProductCatalog() {
     );
   }
 
+  if (showHistoryDetails) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.page}>
+          <View style={styles.historyDetailHeader}>
+            <Pressable accessibilityRole="button" onPress={() => setShowHistoryDetails(false)} style={styles.historyDetailBack}>
+              <ChevronLeft color={colors.blue} size={25} strokeWidth={2.5} />
+              <Text style={styles.cartBackText}>Historik</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.historyDetailTitle}>Registreringer</Text>
+          <Text style={styles.historyDetailSubtitle}>{formatPurchasePeriod(historyPeriodStart, historyPeriodEnd)} · {historyRegistrationCount} registreringer</Text>
+
+          <ScrollView style={styles.historyDetailScroll} contentContainerStyle={styles.historyDetailList} showsVerticalScrollIndicator={false}>
+            {groupedHistory.map((day) => {
+              const dayTotal = day.purchases.reduce((total, item) => total + Number(item.total_price), 0);
+              const latestPurchase = day.purchases[0];
+              const timeLabel = latestPurchase
+                ? new Date(latestPurchase.created_at).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' })
+                : '';
+              return (
+                <View key={getPurchaseDayKey(day.date)} style={styles.historyDetailCard}>
+                  <View style={styles.historyDetailDayHeader}>
+                    <Text style={styles.historyDetailDayTitle}>{formatPurchaseDay(day.date)} · {timeLabel}</Text>
+                    <Text style={styles.historyDetailDayTotal}>{dayTotal.toFixed(0)} kr</Text>
+                  </View>
+                  {day.purchases.map((item) => {
+                    const product = products.find((candidate) => candidate.name === item.product_name);
+                    return (
+                      <View key={item.id} style={styles.historyDetailRow}>
+                        <View style={[styles.historyIcon, { backgroundColor: product?.color ?? '#E5E9FF' }]}>
+                            {product?.imageUrl
+                              ? <Image contentFit="cover" source={{ uri: product.imageUrl }} style={styles.historyImage} />
+                              : <CupSoda color="#142A8F" size={21} strokeWidth={1.8} />}
+                        </View>
+                        <View style={styles.historyProductInfo}>
+                          <Text numberOfLines={1} style={styles.historyDetailProductName}>{item.product_name}</Text>
+                          <Text style={styles.productDetails}>{item.amount} × {Number(item.unit_price).toFixed(0)} kr</Text>
+                        </View>
+                        <Text style={styles.historyDetailPurchaseTotal}>{Number(item.total_price).toFixed(0)} kr</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+            {selectedHistory.length === 0 && <Text style={styles.historyEmptyText}>Der er ingen registreringer i denne periode.</Text>}
+          </ScrollView>
+
+          <View style={styles.bottomNav}>
+            <TabButton label="Produkter" active={false} onPress={() => { setShowHistoryDetails(false); setActiveTab('products'); }}>
+              <LayoutGrid color={colors.muted} size={23} strokeWidth={2} />
+            </TabButton>
+            <TabButton label="Favoritter" active={false} onPress={() => { setShowHistoryDetails(false); setActiveTab('favorites'); }}>
+              <Heart color={colors.muted} size={23} strokeWidth={2} />
+            </TabButton>
+            <TabButton label="Historik" active onPress={() => setShowHistoryDetails(false)}>
+              <Clock3 color={colors.blue} size={23} strokeWidth={2} />
+            </TabButton>
+            <TabButton label="Indstillinger" active={false} onPress={() => { setShowHistoryDetails(false); setActiveTab('settings'); }}>
+              <SlidersHorizontal color={colors.muted} size={23} strokeWidth={2} />
+            </TabButton>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -715,19 +929,60 @@ export function ProductCatalog() {
           )}
 
           {activeTab === 'history' && (
-            <ScrollView contentContainerStyle={styles.simpleList}>
-              {purchaseHistory.map((item) => (
-                <View key={item.id} style={styles.historyRow}>
-                  <View style={styles.historyIcon}><Clock3 color={colors.blue} size={21} /></View>
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName}>{item.product_name}</Text>
-                    <Text style={styles.productDetails}>
-                      {item.amount} stk. · {new Date(item.created_at).toLocaleDateString('da-DK')} · {Number(item.total_price).toFixed(0)} kr
-                    </Text>
+            <ScrollView contentContainerStyle={styles.historyPage}>
+              <View style={styles.historySummaryCard}>
+                <View style={styles.historyPeriodHeader}>
+                  <CalendarDays color={colors.blue} size={24} strokeWidth={2} />
+                  <View style={styles.historyPeriodCopy}>
+                    <Text style={styles.historyPeriodLabel}>Periode</Text>
+                    <Text style={styles.historyPeriodValue}>{formatPurchasePeriod(historyPeriodStart, historyPeriodEnd)}</Text>
+                  </View>
+                  <Pressable accessibilityRole="button" onPress={openHistoryPeriodPicker} style={styles.historyPeriodChangeButton}>
+                    <Text style={styles.historyPeriodChangeText}>Skift</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.historySummaryBody}>
+                  <View>
+                    <Text style={styles.historySummaryLabel}>I alt i perioden</Text>
+                    <Text style={styles.historySummaryAmount}>{historyPeriodTotal.toFixed(0)} kr</Text>
+                  </View>
+                  <View style={styles.historySummaryCount}>
+                    <Text style={styles.historySummaryLabel}>Varer</Text>
+                    <Text style={styles.historySummaryCountValue}>{historyPeriodItemCount}</Text>
                   </View>
                 </View>
-              ))}
-              {purchaseHistory.length === 0 && <Text style={styles.emptyText}>Dine registreringer vises her.</Text>}
+                <Pressable accessibilityRole="button" onPress={() => setShowHistoryDetails(true)} style={styles.historySummaryLink}>
+                  <Text style={styles.historySummaryLinkText}>Se registreringer</Text>
+                  <ChevronRight color={colors.blue} size={22} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.historySectionTitle}>Din historik</Text>
+              <View style={styles.historyListCard}>
+                {groupedHistory.map((day, dayIndex) => (
+                  <View key={getPurchaseDayKey(day.date)} style={[styles.historyDayGroup, dayIndex < groupedHistory.length - 1 && styles.historyDayDivider]}>
+                    <Text style={styles.historyDayTitle}>{formatPurchaseDay(day.date)}</Text>
+                    {day.purchases.map((item) => {
+                      const product = products.find((candidate) => candidate.name === item.product_name);
+                      return (
+                        <View key={item.id} style={styles.historyRow}>
+                          <View style={[styles.historyIcon, { backgroundColor: product?.color ?? '#E5E9FF' }]}>
+                            {product?.imageUrl
+                              ? <Image contentFit="cover" source={{ uri: product.imageUrl }} style={styles.historyImage} />
+                              : <CupSoda color="#142A8F" size={21} strokeWidth={1.8} />}
+                          </View>
+                          <View style={styles.historyProductInfo}>
+                            <Text numberOfLines={1} style={styles.productName}>{item.product_name}</Text>
+                            <Text style={styles.productDetails}>{item.amount} × {Number(item.unit_price).toFixed(0)} kr</Text>
+                          </View>
+                          <Text style={styles.historyPurchaseTotal}>{Number(item.total_price).toFixed(0)} kr</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+                {selectedHistory.length === 0 && <Text style={styles.historyEmptyText}>Der er ingen registreringer i denne periode.</Text>}
+              </View>
             </ScrollView>
           )}
 
@@ -938,6 +1193,96 @@ export function ProductCatalog() {
         </View>
       </Modal>
 
+      <Modal animationType="slide" transparent visible={showHistoryPeriodPicker} onRequestClose={() => setShowHistoryPeriodPicker(false)}>
+        <View style={styles.historyPickerBackdrop}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Luk periodevælger" onPress={() => setShowHistoryPeriodPicker(false)} style={StyleSheet.absoluteFill} />
+          <View style={[styles.historyPickerSheet, { paddingBottom: Math.max(safeAreaInsets.bottom, 20) }]}>
+            <View style={styles.historyPickerHeader}>
+              <Text style={styles.historyPickerTitle}>Vælg periode</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Luk" onPress={() => setShowHistoryPeriodPicker(false)} style={styles.historyPickerClose}>
+                <X color={colors.ink} size={20} />
+              </Pressable>
+            </View>
+            <View style={styles.historyQuickFilters}>
+              <Pressable accessibilityRole="button" onPress={() => setHistoryPreset('last-seven-days')} style={styles.historyQuickFilter}>
+                <Text style={styles.historyQuickFilterText}>Sidste 7 dage</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setHistoryPreset('standard')} style={styles.historyQuickFilter}>
+                <Text style={styles.historyQuickFilterText}>Standard</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setHistoryPreset('this-year')} style={styles.historyQuickFilter}>
+                <Text style={styles.historyQuickFilterText}>I år</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.historyDateFields}>
+              <Pressable accessibilityRole="button" accessibilityState={{ selected: activePeriodField === 'from' }} onPress={() => setActivePeriodField('from')} style={[styles.historyDateField, activePeriodField === 'from' && styles.historyDateFieldActive]}>
+                <View style={styles.historyDateFieldCopy}>
+                  <Text style={styles.historyDateFieldLabel}>Fra</Text>
+                  <Text style={styles.historyDateFieldValue}>{formatPickerDate(draftPeriodStart)}</Text>
+                </View>
+                <ChevronDown color={colors.muted} size={19} />
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityState={{ selected: activePeriodField === 'to' }} onPress={() => setActivePeriodField('to')} style={[styles.historyDateField, activePeriodField === 'to' && styles.historyDateFieldActive]}>
+                <View style={styles.historyDateFieldCopy}>
+                  <Text style={styles.historyDateFieldLabel}>Til</Text>
+                  <Text style={styles.historyDateFieldValue}>{formatPickerDate(draftPeriodEnd)}</Text>
+                </View>
+                <ChevronDown color={colors.muted} size={19} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.historyCalendarPrompt}>{activePeriodField === 'from' ? 'Vælg startdato' : 'Vælg slutdato'}</Text>
+            <View style={styles.historyCalendarNavigation}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Forrige måned" onPress={() => setCalendarMonth((month) => shiftCalendarMonth(month, -1))} style={styles.historyCalendarArrow}>
+                <ChevronLeft color={colors.ink} size={22} />
+              </Pressable>
+              <Text style={styles.historyCalendarRangeTitle}>
+                {calendarMonths[0].toLocaleDateString('da-DK', { month: 'short' }).replace(/\./g, '')} – {calendarMonths[1].toLocaleDateString('da-DK', { month: 'short', year: 'numeric' }).replace(/\./g, '')}
+              </Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Næste måned" onPress={() => setCalendarMonth((month) => shiftCalendarMonth(month, 1))} style={styles.historyCalendarArrow}>
+                <ChevronRight color={colors.ink} size={22} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.historyCalendarScroll} contentContainerStyle={styles.historyCalendarContent} showsVerticalScrollIndicator={false}>
+              {calendarMonths.map((month) => (
+                <View key={`${month.getFullYear()}-${month.getMonth()}`} style={styles.historyCalendarMonth}>
+                  <Text style={styles.historyCalendarMonthLabel}>{formatCalendarMonth(month)}</Text>
+                  <View style={styles.historyCalendarWeek}>
+                    {['Ma', 'Ti', 'On', 'To', 'Fr', 'Lø', 'Sø'].map((weekday) => (
+                      <Text key={weekday} style={styles.historyCalendarWeekday}>{weekday}</Text>
+                    ))}
+                  </View>
+                  {getCalendarWeeks(month).map((week, weekIndex) => (
+                    <View key={weekIndex} style={styles.historyCalendarWeek}>
+                      {week.map((date, dayIndex) => {
+                        if (!date) return <View key={`empty-${weekIndex}-${dayIndex}`} style={styles.historyCalendarDayCell} />;
+                        const isStart = getPurchaseDayKey(date) === getPurchaseDayKey(draftPeriodStart);
+                        const isEnd = getPurchaseDayKey(date) === getPurchaseDayKey(draftPeriodEnd);
+                        const isSelected = isStart || isEnd;
+                        const isInRange = isInDraftHistoryPeriod(date);
+                        return (
+                          <View key={getPurchaseDayKey(date)} style={[styles.historyCalendarDayCell, isInRange && styles.historyCalendarDayInRange]}>
+                            <Pressable accessibilityRole="button" accessibilityLabel={formatPickerDate(date)} accessibilityState={{ selected: isSelected }} onPress={() => selectHistoryDate(date)} style={[styles.historyCalendarDayButton, isSelected && styles.historyCalendarDaySelected]}>
+                              <Text style={[styles.historyCalendarDayNumber, isInRange && styles.historyCalendarDayNumberInRange, isSelected && styles.historyCalendarDayNumberSelected]}>{date.getDate()}</Text>
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+
+            <Pressable accessibilityRole="button" onPress={applyHistoryPeriod} style={styles.historyApplyButton}>
+              <Text style={styles.historyApplyButtonText}>Vis periode</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1048,9 +1393,82 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', gap: 6, paddingVertical: 36 },
   emptyTitle: { color: colors.ink, fontSize: 16, fontWeight: '600' },
   emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  simpleList: { gap: 10, paddingTop: 16 },
-  historyRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderRadius: 17, backgroundColor: colors.white },
-  historyIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#E5E9FF' },
+  historyPage: { gap: 22, paddingBottom: 20 },
+  historyDetailHeader: { minHeight: 44, justifyContent: 'center', marginBottom: 18 },
+  historyDetailBack: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
+  historyDetailTitle: { color: colors.ink, fontSize: 40, lineHeight: 48, fontWeight: '700' },
+  historyDetailSubtitle: { color: colors.muted, fontSize: 15, fontWeight: '600', marginTop: 4, marginBottom: 20 },
+  historyDetailScroll: { flex: 1 },
+  historyDetailList: { gap: 18, paddingBottom: 14 },
+  historyDetailCard: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 26, backgroundColor: colors.white },
+  historyDetailDayHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  historyDetailDayTitle: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '600' },
+  historyDetailDayTotal: { color: colors.ink, fontSize: 21, fontWeight: '700' },
+  historyDetailRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  historyDetailProductName: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  historyDetailPurchaseTotal: { color: colors.muted, fontSize: 15, fontWeight: '500' },
+  historySummaryCard: { borderWidth: 1, borderColor: '#D5DDE5', borderRadius: 28, backgroundColor: colors.white, overflow: 'hidden' },
+  historyPeriodHeader: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, backgroundColor: '#F5F7F9' },
+  historyPeriodCopy: { flex: 1, gap: 3 },
+  historyPeriodLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  historyPeriodValue: { color: colors.ink, fontSize: 18, fontWeight: '600' },
+  historyPeriodChangeButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 22, backgroundColor: '#E2E7FF' },
+  historyPeriodChangeText: { color: colors.blue, fontSize: 14, fontWeight: '700' },
+  historySummaryBody: { minHeight: 116, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22 },
+  historySummaryLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  historySummaryAmount: { color: colors.ink, fontSize: 40, lineHeight: 46, fontWeight: '700' },
+  historySummaryCount: { alignItems: 'flex-end', gap: 4 },
+  historySummaryCountValue: { color: colors.ink, fontSize: 24, fontWeight: '700' },
+  historySummaryLink: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, borderTopWidth: 1, borderTopColor: '#E8EDF2' },
+  historySummaryLinkText: { color: colors.blue, fontSize: 15, fontWeight: '600' },
+  historySectionTitle: { color: colors.ink, fontSize: 23, fontWeight: '700' },
+  historyListCard: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 26, backgroundColor: colors.white },
+  historyDayGroup: { paddingTop: 16, paddingBottom: 10 },
+  historyDayDivider: { borderBottomWidth: 1, borderBottomColor: '#E8EDF2' },
+  historyDayTitle: { color: colors.muted, fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  historyRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  historyIcon: { width: 54, height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  historyImage: { width: '100%', height: '100%', borderRadius: 16 },
+  historyProductInfo: { flex: 1, minWidth: 0, gap: 3 },
+  historyPurchaseTotal: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  historyEmptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, paddingVertical: 24, textAlign: 'center' },
+  historyPickerBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(17, 27, 55, 0.35)' },
+  historyPickerSheet: { height: '92%', maxHeight: '92%', paddingHorizontal: 24, paddingTop: 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
+  historyPickerHeader: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  historyPickerTitle: { color: colors.ink, fontSize: 20, fontWeight: '700' },
+  historyPickerClose: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: colors.background },
+  historyQuickFilters: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  historyQuickFilter: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 20, borderWidth: 1, borderColor: '#D5DDE5', borderRadius: 24, backgroundColor: colors.white },
+  historyQuickFilterText: { color: colors.ink, fontSize: 14, fontWeight: '600' },
+  historyDateFields: { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  historyDateField: { minHeight: 82, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: '#D5DDE5', borderRadius: 20, backgroundColor: colors.white },
+  historyDateFieldActive: { borderWidth: 2, borderColor: colors.blue },
+  historyDateFieldCopy: { flex: 1, gap: 4 },
+  historyDateFieldLabel: { color: colors.muted, fontSize: 13, fontWeight: '500' },
+  historyDateFieldValue: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  historyCalendarPrompt: { color: colors.muted, fontSize: 14, fontWeight: '600', marginBottom: 10 },
+  historyCalendarNavigation: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  historyCalendarArrow: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: colors.background },
+  historyCalendarRangeTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' },
+  historyCalendarScroll: { flexShrink: 1, minHeight: 0 },
+  historyCalendarContent: { paddingBottom: 10 },
+  historyCalendarMonth: { marginBottom: 14 },
+  historyCalendarMonthLabel: { color: colors.ink, fontSize: 16, fontWeight: '600', marginHorizontal: 4, marginBottom: 8 },
+  historyCalendarWeek: { flexDirection: 'row', alignItems: 'center' },
+  historyCalendarWeekday: { height: 34, flex: 1, color: colors.muted, fontSize: 13, fontWeight: '600', textAlign: 'center', textAlignVertical: 'center' },
+  historyCalendarDayCell: { height: 46, flex: 1, alignItems: 'center', justifyContent: 'center' },
+  historyCalendarDayInRange: { backgroundColor: '#E2E7FF' },
+  historyCalendarDayButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  historyCalendarDaySelected: { backgroundColor: colors.blue },
+  historyCalendarDayNumber: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  historyCalendarDayNumberInRange: { color: '#152A9C' },
+  historyCalendarDayNumberSelected: { color: colors.white, fontWeight: '700' },
+  historyApplyButton: { minHeight: 68, alignItems: 'center', justifyContent: 'center', marginTop: 10, borderRadius: 34, backgroundColor: colors.blue },
+  historyApplyButtonText: { color: colors.white, fontSize: 17, fontWeight: '700' },
+  historyPeriodOption: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E8EDF2' },
+  historyPeriodOptionSelected: { backgroundColor: '#F3F5FF' },
+  historyPeriodOptionText: { flex: 1, color: colors.ink, fontSize: 14, fontWeight: '500' },
+  historyPeriodOptionTextSelected: { color: colors.blue, fontWeight: '700' },
   settingsContent: { gap: 12, paddingBottom: 16 },
   profileCard: { gap: 11, padding: 16, borderRadius: 20, backgroundColor: colors.white },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 3 },
