@@ -1,28 +1,28 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import {
-  CalendarDays,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Clock3,
-  CupSoda,
-  Heart,
-  KeyRound,
-  LayoutGrid,
-  LogOut,
-  Minus,
-  Plus,
-  Search,
-  ShoppingBag,
-  SlidersHorizontal,
-  Trash2,
-  UserRound,
-  X,
+    CalendarDays,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clock3,
+    CupSoda,
+    Heart,
+    KeyRound,
+    LayoutGrid,
+    LogOut,
+    Minus,
+    Plus,
+    Search,
+    ShoppingBag,
+    SlidersHorizontal,
+    Trash2,
+    UserRound,
+    X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
