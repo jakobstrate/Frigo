@@ -167,6 +167,8 @@ export function ProductCatalog() {
   const [catalogError, setCatalogError] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartNotice, setCartNotice] = useState('');
+  const [registeredItemCount, setRegisteredItemCount] = useState(0);
+  const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const cartSwipeWidth = useRef(0);
   const cartSwipeTranslation = useRef(new Animated.Value(0)).current;
@@ -423,6 +425,19 @@ export function ProductCatalog() {
     setShowCart(true);
   }
 
+  function finishRegistration(openHistory: boolean) {
+    setShowRegistrationSuccess(false);
+    setShowCart(false);
+    setCart({});
+    setCartNotice('');
+    setShowHistoryDetails(false);
+    setActiveTab(openHistory ? 'history' : 'products');
+    if (!openHistory) {
+      setActiveCategory('Alle');
+      setSearch('');
+    }
+  }
+
   async function registerCart() {
     if (isRegistering || cartItems.length === 0) return;
     if (!employeeProfile?.department_id) {
@@ -450,8 +465,13 @@ export function ProductCatalog() {
       const { error: purchaseError } = await supabase.from('purchases').insert(rows);
       if (purchaseError) throw purchaseError;
 
-      setCart({});
-      setCartNotice(`Registrering gennemført for ${itemCount} varer.`);
+      if (Platform.OS === 'web') {
+        setCart({});
+        setCartNotice(`Registrering gennemført for ${itemCount} varer.`);
+      } else {
+        setRegisteredItemCount(itemCount);
+        setShowRegistrationSuccess(true);
+      }
       const { data: history, error: historyError } = await supabase
         .from('purchases')
         .select('id, product_name, amount, unit_price, total_price, created_at')
@@ -678,6 +698,35 @@ export function ProductCatalog() {
             </>
           )}
         </View>
+        <Modal
+          animationType="slide"
+          transparent
+          visible={Platform.OS !== 'web' && showRegistrationSuccess}
+          onRequestClose={() => finishRegistration(false)}>
+          <View style={styles.registrationSuccessBackdrop}>
+            <View style={[styles.registrationSuccessSheet, { paddingBottom: Math.max(safeAreaInsets.bottom, 20) }]}>
+              <View style={styles.registrationSuccessIcon}>
+                <Check color={colors.white} size={31} strokeWidth={2.8} />
+              </View>
+              <Text style={styles.registrationSuccessTitle}>Registreret</Text>
+              <Text style={styles.registrationSuccessText}>
+                {registeredItemCount} {registeredItemCount === 1 ? 'vare er registreret' : 'varer er registreret'} og kan ses i din historik.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => finishRegistration(false)}
+                style={({ pressed }) => [styles.registrationSuccessPrimary, pressed && styles.pressed]}>
+                <Text style={styles.registrationSuccessPrimaryText}>Færdig</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => finishRegistration(true)}
+                style={({ pressed }) => [styles.registrationSuccessSecondary, pressed && styles.pressed]}>
+                <Text style={styles.registrationSuccessSecondaryText}>Se historik</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -754,7 +803,7 @@ export function ProductCatalog() {
 
   if (showHistoryDetails) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={Platform.OS === 'web' ? undefined : ['top']} style={styles.safeArea}>
         <StatusBar style="dark" />
         <View style={styles.page}>
           <View style={styles.historyDetailHeader}>
@@ -802,7 +851,7 @@ export function ProductCatalog() {
             {selectedHistory.length === 0 && <Text style={styles.historyEmptyText}>Der er ingen registreringer i denne periode.</Text>}
           </ScrollView>
 
-          <View style={styles.bottomNav}>
+          <View style={[styles.bottomNav, Platform.OS !== 'web' && { paddingBottom: safeAreaInsets.bottom }]}>
             <TabButton label="Produkter" active={false} onPress={() => { setShowHistoryDetails(false); setActiveTab('products'); }}>
               <LayoutGrid color={colors.muted} size={23} strokeWidth={2} />
             </TabButton>
@@ -822,7 +871,7 @@ export function ProductCatalog() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={Platform.OS === 'web' ? undefined : ['top']} style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.page}>
         <View style={styles.header}>
@@ -842,7 +891,21 @@ export function ProductCatalog() {
         <View style={styles.content}>
           {!!catalogError && <Text accessibilityRole="alert" style={styles.catalogError}>{catalogError}</Text>}
           {(activeTab === 'products' || activeTab === 'favorites') && (
-            <ScrollView
+            Platform.OS !== 'web' && activeTab === 'favorites' && !catalogLoading && favorites.length === 0 ? (
+              <View style={styles.emptyFavoritesState}>
+                <View style={styles.emptyFavoritesIcon}>
+                  <Heart color={colors.favorite} size={27} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.emptyFavoritesTitle}>Ingen favoritter endnu</Text>
+                <Text style={styles.emptyFavoritesText}>Tryk på hjertet ved et produkt for at gemme det her.</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => { setActiveTab('products'); setActiveCategory('Alle'); setSearch(''); }}
+                  style={styles.emptyFavoritesAction}>
+                  <Text style={styles.emptyFavoritesActionText}>Se produkter</Text>
+                </Pressable>
+              </View>
+            ) : <ScrollView
               style={styles.productContentScroll}
               contentContainerStyle={styles.productContent}
               showsVerticalScrollIndicator={false}>
@@ -879,7 +942,7 @@ export function ProductCatalog() {
                 </ScrollView>
               )}
 
-              <View style={styles.productList}>
+              <View style={[styles.productList, activeTab === 'favorites' && styles.favoriteProductList]}>
                 {catalogLoading ? <ActivityIndicator color={colors.blue} /> : (
                   shownProducts.map((product) => (
                     <View key={product.id} style={styles.productCard}>
@@ -1071,7 +1134,7 @@ export function ProductCatalog() {
           </Pressable>
         )}
 
-        <View style={styles.bottomNav}>
+        <View style={[styles.bottomNav, Platform.OS !== 'web' && { paddingBottom: safeAreaInsets.bottom }]}>
           <TabButton label="Produkter" active={activeTab === 'products'} onPress={() => setActiveTab('products')}>
             <LayoutGrid color={activeTab === 'products' ? colors.blue : colors.muted} size={23} strokeWidth={2} />
           </TabButton>
@@ -1381,6 +1444,7 @@ const styles = StyleSheet.create({
   categoryText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
   categoryTextActive: { color: colors.white },
   productList: { gap: 10, paddingTop: 0, paddingBottom: 16 },
+  favoriteProductList: { paddingTop: 14 },
   productCard: { minHeight: 88, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.white },
   productMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 13 },
   productIcon: { width: 58, height: 58, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
@@ -1393,6 +1457,12 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', gap: 6, paddingVertical: 36 },
   emptyTitle: { color: colors.ink, fontSize: 16, fontWeight: '600' },
   emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  emptyFavoritesState: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 44 },
+  emptyFavoritesIcon: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 14, borderRadius: 40, backgroundColor: '#FDEBDD' },
+  emptyFavoritesTitle: { color: colors.ink, fontSize: 20, lineHeight: 26, fontWeight: '700', textAlign: 'center', marginBottom: 10 },
+  emptyFavoritesText: { maxWidth: 310, color: colors.muted, fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 14 },
+  emptyFavoritesAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  emptyFavoritesActionText: { color: colors.blue, fontSize: 15, fontWeight: '600' },
   historyPage: { gap: 22, paddingBottom: 20 },
   historyDetailHeader: { minHeight: 44, justifyContent: 'center', marginBottom: 18 },
   historyDetailBack: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
@@ -1501,6 +1571,15 @@ const styles = StyleSheet.create({
   deleteModalCard: { width: '100%', maxWidth: 430, alignItems: 'center', gap: 14, padding: 24, borderRadius: 24, backgroundColor: colors.white },
   deleteModalIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 29, backgroundColor: '#FCE9E7' },
   deleteSuccessIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: 29, backgroundColor: colors.green },
+  registrationSuccessBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(24, 31, 74, 0.56)' },
+  registrationSuccessSheet: { width: '100%', maxWidth: 520, alignSelf: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 24, paddingTop: 28, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
+  registrationSuccessIcon: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 32, backgroundColor: colors.green },
+  registrationSuccessTitle: { color: colors.ink, fontSize: 25, lineHeight: 32, fontWeight: '700', textAlign: 'center' },
+  registrationSuccessText: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginBottom: 4 },
+  registrationSuccessPrimary: { width: '100%', minHeight: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 27, backgroundColor: colors.blue },
+  registrationSuccessPrimaryText: { color: colors.white, fontSize: 15, fontWeight: '600' },
+  registrationSuccessSecondary: { width: '100%', minHeight: 54, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: 27, backgroundColor: colors.white },
+  registrationSuccessSecondaryText: { color: colors.blue, fontSize: 15, fontWeight: '600' },
   deleteModalTitle: { color: colors.ink, fontSize: 20, lineHeight: 27, fontWeight: '700', textAlign: 'center' },
   deleteModalText: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
   deleteConfirmButton: { width: '100%', minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 25, backgroundColor: '#C52C29' },
