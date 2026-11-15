@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormE
 import { supabase } from '@/backend/src/supabase';
 import type { AdminRole } from '@/frontend/src/web/admin-access';
 
-type Company = { id: number; name: string };
+type Company = { id: number; name: string; status: 'active' | 'inactive' | 'deleted' };
 type Department = { id: number; company_id: number; name: string };
 type UserStatus = 'active' | 'inactive' | 'pending' | 'rejected' | 'deleted';
 type UserRole = 'super_admin' | 'company_admin' | 'employee';
@@ -27,7 +27,7 @@ type UserInput = {
   status: UserStatus;
   image?: File;
 };
-type StatusFilter = 'all' | 'active' | 'inactive';
+type StatusFilter = 'all' | 'active' | 'inactive' | 'deleted';
 
 async function getFunctionError(error: { message: string; context?: unknown }) {
   if (error.context instanceof Response) {
@@ -335,6 +335,41 @@ function DeleteUserModal({
   );
 }
 
+function RestoreUserModal({
+  user,
+  isRestoring,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  user: ManagedUser;
+  isRestoring: boolean;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="frigo-admin-modal-backdrop">
+      <section className="frigo-admin-modal frigo-admin-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="frigo-restore-user-title">
+        <div className="frigo-admin-modal-header">
+          <h2 id="frigo-restore-user-title">Gendan bruger</h2>
+          <button className="frigo-admin-modal-close" type="button" onClick={onCancel} disabled={isRestoring} aria-label="Luk">×</button>
+        </div>
+        <p className="frigo-admin-modal-help">
+          {user.display_name} bliver aktiv igen og kan logge ind.
+        </p>
+        {error && <p className="frigo-admin-error" role="alert">{error}</p>}
+        <div className="frigo-admin-modal-actions">
+          <button className="frigo-admin-secondary-button" type="button" onClick={onCancel} disabled={isRestoring}>Annuller</button>
+          <button className="frigo-admin-primary-button" type="button" onClick={onConfirm} disabled={isRestoring}>
+            {isRestoring ? 'Gendanner...' : 'Gendan bruger'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function UserManagement({
   role,
   companyId,
@@ -356,6 +391,8 @@ export default function UserManagement({
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [restoringUser, setRestoringUser] = useState<ManagedUser | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
@@ -377,8 +414,10 @@ export default function UserManagement({
     let profileQuery = supabase
       .from('profiles')
       .select('id, display_name, email, role, status, company_id, department_id, avatar_path')
-      .neq('status', 'deleted')
       .order('display_name');
+    profileQuery = statusFilter === 'deleted'
+      ? profileQuery.eq('status', 'deleted')
+      : profileQuery.neq('status', 'deleted');
     if (role === 'company_admin') {
       if (companyId === null) {
         setLoadError('Din konto er ikke tilknyttet en virksomhed.');
@@ -391,8 +430,8 @@ export default function UserManagement({
     const [profilesResult, companiesResult, departmentsResult] = await Promise.all([
       profileQuery,
       role === 'super_admin'
-        ? supabase.from('companies').select('id, name').eq('status', 'active').order('name')
-        : supabase.from('companies').select('id, name').eq('id', companyId ?? -1).eq('status', 'active'),
+        ? supabase.from('companies').select('id, name, status').order('name')
+        : supabase.from('companies').select('id, name, status').eq('id', companyId ?? -1).eq('status', 'active'),
       role === 'super_admin'
         ? supabase.from('departments').select('id, company_id, name').order('name')
         : supabase.from('departments').select('id, company_id, name').eq('company_id', companyId ?? -1).order('name'),
@@ -426,7 +465,7 @@ export default function UserManagement({
       avatar_url: profile.avatar_path ? imageByPath.get(profile.avatar_path) ?? null : null,
     })));
     setIsLoading(false);
-  }, [companyId, role]);
+  }, [companyId, role, statusFilter]);
 
   useEffect(() => {
     void loadUsers();
@@ -437,7 +476,11 @@ export default function UserManagement({
     return users.filter((user) => {
       const matchesSearch = !search || `${user.display_name} ${user.email}`.toLocaleLowerCase().includes(search);
       const matchesStatus = statusFilter === 'all'
-        || (statusFilter === 'active' ? user.status === 'active' : user.status !== 'active');
+        || (statusFilter === 'active'
+          ? user.status === 'active'
+          : statusFilter === 'deleted'
+            ? user.status === 'deleted'
+            : user.status !== 'active' && user.status !== 'deleted');
       return matchesSearch && matchesStatus;
     });
   }, [query, statusFilter, users]);
@@ -513,6 +556,31 @@ export default function UserManagement({
     setIsDeleting(false);
   }
 
+  async function restoreUser() {
+    if (!restoringUser) return;
+    setIsRestoring(true);
+    setActionError('');
+    const { error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'restore', userId: restoringUser.id },
+    });
+    if (error) {
+      setActionError(await getFunctionError(error));
+    } else {
+      setNotice(`${restoringUser.display_name} er gendannet og aktiv.`);
+      setRestoringUser(null);
+      await loadUsers();
+    }
+    setIsRestoring(false);
+  }
+
+  const statusFilters: [StatusFilter, string][] = [
+    ['all', 'Alle'],
+    ['active', 'Aktive'],
+    ['inactive', 'Inaktive'],
+  ];
+  if (role === 'super_admin') statusFilters.push(['deleted', 'Slettede']);
+  const activeCompanies = companies.filter((company) => company.status === 'active');
+
   return (
     <>
       {notice && <p className="frigo-admin-notice" role="status">{notice}</p>}
@@ -550,11 +618,7 @@ export default function UserManagement({
             />
           </label>
           <div className="frigo-user-filters" aria-label="Filtrer brugere">
-            {([
-              ['all', 'Alle'],
-              ['active', 'Aktive'],
-              ['inactive', 'Inaktive'],
-            ] as const).map(([filter, label]) => (
+            {statusFilters.map(([filter, label]) => (
               <button
                 key={filter}
                 type="button"
@@ -589,7 +653,9 @@ export default function UserManagement({
               <tbody>
                 {visibleUsers.map((user) => {
                   const canManage = user.id !== currentUserId && (role === 'super_admin' || user.role === 'employee');
-                  const companyName = companies.find((company) => company.id === user.company_id)?.name ?? '';
+                  const companyName = user.company_id === null
+                    ? 'Alle virksomheder'
+                    : companies.find((company) => company.id === user.company_id)?.name ?? `Virksomhed #${user.company_id}`;
                   const departmentName = user.department_id === null
                     ? 'Hele virksomheden'
                     : departments.find((department) => department.id === user.department_id)?.name ?? 'Hele virksomheden';
@@ -612,34 +678,55 @@ export default function UserManagement({
                       <td><span className={`frigo-user-status is-${user.status}`}>{statusLabel(user.status)}</span></td>
                       <td>
                         <div className="frigo-user-actions">
-                          <button
-                            className="frigo-user-icon-button"
-                            type="button"
-                            aria-label={`Rediger ${user.display_name}`}
-                            title="Rediger"
-                            disabled={!canManage}
-                            onClick={() => {
-                              setNotice('');
-                              setActionError('');
-                              setEditingUser(user);
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" /></svg>
-                          </button>
-                          <button
-                            className="frigo-user-icon-button is-danger"
-                            type="button"
-                            aria-label={`Slet ${user.display_name}`}
-                            title="Slet"
-                            disabled={!canManage}
-                            onClick={() => {
-                              setNotice('');
-                              setActionError('');
-                              setDeletingUser(user);
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg>
-                          </button>
+                          {user.status === 'deleted' ? (
+                            role === 'super_admin' && (
+                              <button
+                                className="frigo-user-icon-button"
+                                type="button"
+                                aria-label={`Gendan ${user.display_name}`}
+                                title="Gendan bruger"
+                                disabled={!canManage}
+                                onClick={() => {
+                                  setNotice('');
+                                  setActionError('');
+                                  setRestoringUser(user);
+                                }}
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4m-4 5a8 8 0 0 0 14.9 3M20 20v-4h-4" /></svg>
+                              </button>
+                            )
+                          ) : (
+                            <>
+                              <button
+                                className="frigo-user-icon-button"
+                                type="button"
+                                aria-label={`Rediger ${user.display_name}`}
+                                title="Rediger"
+                                disabled={!canManage}
+                                onClick={() => {
+                                  setNotice('');
+                                  setActionError('');
+                                  setEditingUser(user);
+                                }}
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" /></svg>
+                              </button>
+                              <button
+                                className="frigo-user-icon-button is-danger"
+                                type="button"
+                                aria-label={`Slet ${user.display_name}`}
+                                title="Slet"
+                                disabled={!canManage}
+                                onClick={() => {
+                                  setNotice('');
+                                  setActionError('');
+                                  setDeletingUser(user);
+                                }}
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -655,7 +742,7 @@ export default function UserManagement({
         <UserModal
           key={editingUser?.id ?? 'new'}
           user={editingUser}
-          companies={companies}
+          companies={activeCompanies}
           departments={departments}
           role={role}
           companyId={companyId}
@@ -672,6 +759,15 @@ export default function UserManagement({
           isDeleting={isDeleting}
           onCancel={() => setDeletingUser(null)}
           onConfirm={() => void deleteUser()}
+        />
+      )}
+      {restoringUser && (
+        <RestoreUserModal
+          user={restoringUser}
+          isRestoring={isRestoring}
+          error={actionError}
+          onCancel={() => setRestoringUser(null)}
+          onConfirm={() => void restoreUser()}
         />
       )}
     </>

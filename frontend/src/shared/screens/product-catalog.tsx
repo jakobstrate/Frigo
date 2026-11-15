@@ -177,6 +177,9 @@ export function ProductCatalog() {
   const [cartAddedMessage, setCartAddedMessage] = useState('');
   const [showCart, setShowCart] = useState(false);
   const [profileNotice, setProfileNotice] = useState('');
+  const [deletionRequestError, setDeletionRequestError] = useState('');
+  const [deletionRequestPending, setDeletionRequestPending] = useState(false);
+  const [isSubmittingDeletionRequest, setIsSubmittingDeletionRequest] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricNotice, setBiometricNotice] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -232,7 +235,7 @@ export function ProductCatalog() {
           return;
         }
 
-        const [companyResult, departmentResult, categoriesResult, productsResult, membershipsResult, favoritesResult, purchasesResult] = await Promise.all([
+        const [companyResult, departmentResult, categoriesResult, productsResult, membershipsResult, favoritesResult, purchasesResult, deletionRequestResult] = await Promise.all([
           supabase.from('companies').select('name').eq('id', profile.company_id).maybeSingle(),
           profile.department_id
             ? supabase.from('departments').select('name').eq('id', profile.department_id).maybeSingle()
@@ -263,6 +266,12 @@ export function ProductCatalog() {
             .eq('purchaser_id', user.id)
             .order('created_at', { ascending: false })
             .limit(500),
+          supabase
+            .from('account_deletion_requests')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'pending')
+            .maybeSingle(),
         ]);
 
         if (!isActive) return;
@@ -306,6 +315,8 @@ export function ProductCatalog() {
         })));
         setFavorites(favoritesResult.error ? [] : (favoritesResult.data ?? []).map((favorite) => favorite.product_id));
         setPurchaseHistory(purchasesResult.error ? [] : purchasesResult.data ?? []);
+        setDeletionRequestPending(Boolean(deletionRequestResult.data));
+        if (deletionRequestResult.error) setDeletionRequestError(`Sletningsanmodningens status kunne ikke indlæses: ${deletionRequestResult.error.message}`);
         if ((productsResult.data ?? []).length === 0) {
           setCatalogError(profile.department_id && !membershipsResult.error && (membershipsResult.data ?? []).length === 0
             ? 'Der er ingen aktive produkter tilknyttet din afdeling endnu. Kontakt din administrator.'
@@ -570,9 +581,24 @@ export function ProductCatalog() {
     setShowDeleteConfirm(true);
   }
 
-  function submitDeleteRequest() {
-    setShowDeleteConfirm(false);
-    setProfileNotice('Kontakt din virksomhedsadministrator for at få slettet din profil.');
+  async function submitDeleteRequest() {
+    setDeletionRequestError('');
+    setIsSubmittingDeletionRequest(true);
+    try {
+      const { error: requestError } = await supabase.rpc('request_account_deletion');
+      if (requestError) {
+        setDeletionRequestError(`Anmodningen kunne ikke sendes: ${requestError.message}`);
+        return;
+      }
+
+      setDeletionRequestPending(true);
+      setShowDeleteConfirm(false);
+      setProfileNotice('Din anmodning om sletning er sendt til en administrator.');
+    } catch (requestError) {
+      setDeletionRequestError(`Anmodningen kunne ikke sendes: ${requestError instanceof Error ? requestError.message : 'Ukendt fejl.'}`);
+    } finally {
+      setIsSubmittingDeletionRequest(false);
+    }
   }
 
   function openHistoryPeriodPicker() {
@@ -1108,11 +1134,21 @@ export function ProductCatalog() {
                   <Text style={styles.accountRowTitle}>Log ud</Text>
                   <ChevronRight color={colors.muted} size={21} />
                 </Pressable>
-                <Pressable accessibilityRole="button" onPress={confirmDeleteProfile} style={styles.deleteActionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: deletionRequestPending }}
+                  disabled={deletionRequestPending}
+                  onPress={() => {
+                    setDeletionRequestError('');
+                    confirmDeleteProfile();
+                  }}
+                  style={styles.deleteActionRow}
+                >
                   <View style={styles.accountRowIcon}><Trash2 color="#C52C29" size={20} /></View>
-                  <Text style={styles.deleteActionText}>Slet profil</Text>
+                  <Text style={styles.deleteActionText}>{deletionRequestPending ? 'Sletningsanmodning sendt' : 'Slet profil'}</Text>
                   <ChevronRight color="#C52C29" size={21} />
                 </Pressable>
+                {!!deletionRequestError && <Text accessibilityRole="alert" style={styles.settingsError}>{deletionRequestError}</Text>}
               </View>
             </ScrollView>
           )}
@@ -1244,12 +1280,23 @@ export function ProductCatalog() {
             </View>
             <Text style={styles.deleteModalTitle}>Slet din profil?</Text>
             <Text style={styles.deleteModalText}>
-              Kontakt din virksomhedsadministrator for at få slettet din profil. Dine registreringer håndteres efter virksomhedens dataregler.
+              Din anmodning sendes til en administrator. Kontoen slettes først, når anmodningen er godkendt.
             </Text>
-            <Pressable accessibilityRole="button" onPress={submitDeleteRequest} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
-              <Text style={styles.deleteConfirmText}>Forstået</Text>
+            {!!deletionRequestError && <Text accessibilityRole="alert" style={styles.settingsError}>{deletionRequestError}</Text>}
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmittingDeletionRequest}
+              onPress={() => void submitDeleteRequest()}
+              style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed, isSubmittingDeletionRequest && { opacity: 0.5 }]}
+            >
+              <Text style={styles.deleteConfirmText}>{isSubmittingDeletionRequest ? 'Sender...' : 'Send anmodning'}</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setShowDeleteConfirm(false)} style={styles.deleteCancelButton}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmittingDeletionRequest}
+              onPress={() => setShowDeleteConfirm(false)}
+              style={styles.deleteCancelButton}
+            >
               <Text style={styles.deleteCancelText}>Fortryd</Text>
             </Pressable>
           </View>

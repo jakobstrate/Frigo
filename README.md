@@ -25,11 +25,15 @@ supabase functions deploy update-company
 supabase functions deploy manage-users
 ```
 
+For an existing project, apply the updated `supabase/auth_flow.sql` to add account-deletion request support, then redeploy `manage-users`.
+
 When a company has no active administrator, the edit dialog can send an invitation to create its first one.
 
 The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
 
 The user page is available to Superadmins across all companies and to company administrators within their own company. Admin-created accounts are active immediately and receive a login invitation. Company administrators can create and manage employees only; only Superadmins can assign roles or companies. Employee registration lists active companies, and the approving administrator assigns the department. A user without a department belongs to the whole company. Profile pictures must be square, at least 800 × 800 pixels, JPG/PNG/WEBP, and no larger than 5 MB.
+
+New employee requests appear in the web administration request page for the selected company's active administrators. Companies without an active company administrator route requests to an active Superadmin. Employees can request account deletion from app settings; an administrator can reject the request or approve it to block sign-in and soft-delete the profile.
 
 Deleting a profile or company blocks account sign-in and soft-deletes the profile/company without immediately removing accounting history. The database prevents hard deletion during the five-year retention period. `data_retention.sql` schedules a daily Supabase Cron job that removes expired accounting rows, Auth users, profiles, and companies after that period.
 
