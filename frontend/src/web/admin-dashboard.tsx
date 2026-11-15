@@ -1,10 +1,10 @@
 import { Link, router, useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
-import AdminReviewScreen from '@/frontend/src/shared/screens/admin-review';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
+import AdminReview from '@/frontend/src/web/admin-review';
 import CompanyManagement from '@/frontend/src/web/company-management';
 import DepartmentManagement from '@/frontend/src/web/department-management';
 import AdminOverview from '@/frontend/src/web/admin-overview';
@@ -33,6 +33,31 @@ type DashboardState =
 
 function isAdminRole(role: string): role is AdminRole {
   return role === 'super_admin' || role === 'company_admin';
+}
+
+async function getPendingRequestCount(profile: Pick<AdminProfile, 'id' | 'role' | 'company_id'>) {
+  const employeeCountQuery = supabase
+    .from('employee_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending');
+  const deletionCountQuery = supabase
+    .from('account_deletion_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending');
+  const scopedEmployeeCountQuery = profile.role === 'super_admin'
+    ? employeeCountQuery.eq('requested_admin_id', profile.id)
+    : employeeCountQuery.eq('company_id', profile.company_id ?? -1);
+  const scopedDeletionCountQuery = profile.role === 'super_admin'
+    ? deletionCountQuery.eq('requested_admin_id', profile.id)
+    : deletionCountQuery.eq('company_id', profile.company_id ?? -1);
+  const [employeeCountResult, deletionCountResult] = await Promise.all([
+    scopedEmployeeCountQuery,
+    scopedDeletionCountQuery,
+  ]);
+  return {
+    count: (employeeCountResult.count ?? 0) + (deletionCountResult.count ?? 0),
+    error: employeeCountResult.error ?? deletionCountResult.error,
+  };
 }
 
 function AdminIcon({ page }: { page: AdminPageId }) {
@@ -70,16 +95,18 @@ function AdminPageContent({
   page,
   profile,
   companyName,
+  onRequestsChanged,
 }: {
   page: AdminPageId;
   profile: AdminProfile;
   companyName: string;
+  onRequestsChanged: () => void;
 }) {
   const pageDetails = getAdminPages(profile.role).find((item) => item.id === page);
   if (!pageDetails) return null;
 
   if (page === 'requests') {
-    return <AdminReviewScreen embedded />;
+    return <AdminReview role={profile.role} companyId={profile.company_id} onRequestsChanged={onRequestsChanged} />;
   }
 
   if (page === 'overview') {
@@ -201,18 +228,14 @@ export default function AdminDashboard() {
         companyName = company?.name ?? '';
       }
 
-      const { count, error: requestsError } = await supabase
-        .from('employee_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .eq('requested_admin_id', currentProfile.id);
+      const { count: pendingRequestCount, error: requestsError } = await getPendingRequestCount(currentProfile);
 
       if (!isMounted) return;
       setDashboard({
         status: 'ready',
         profile: currentProfile,
         companyName,
-        pendingRequests: count ?? 0,
+        pendingRequests: pendingRequestCount,
         notice: requestsError ? `Anmodninger kunne ikke indlæses: ${requestsError.message}` : '',
       });
     }
@@ -226,6 +249,44 @@ export default function AdminDashboard() {
   const allowedPages = dashboard.status === 'ready' ? getAdminPages(dashboard.profile.role) : [];
   const defaultPage = allowedPages[0]?.id;
   const activePage = allowedPages.find(({ id }) => id === requestedPage)?.id ?? defaultPage;
+  const requestProfileId = dashboard.status === 'ready' ? dashboard.profile.id : '';
+  const requestProfileRole = dashboard.status === 'ready' ? dashboard.profile.role : null;
+  const requestCompanyId = dashboard.status === 'ready' ? dashboard.profile.company_id : null;
+
+  const refreshPendingRequests = useCallback(async () => {
+    if (!requestProfileId || !requestProfileRole) return;
+    const { count, error } = await getPendingRequestCount({
+      id: requestProfileId,
+      role: requestProfileRole,
+      company_id: requestCompanyId,
+    });
+    setDashboard((current) => {
+      if (current.status !== 'ready' || current.profile.id !== requestProfileId) return current;
+      if (error) {
+        return { ...current, notice: `Anmodninger kunne ikke indlæses: ${error.message}` };
+      }
+      const notice = current.notice.startsWith('Anmodninger kunne ikke indlæses:') ? '' : current.notice;
+      return { ...current, pendingRequests: count, notice };
+    });
+  }, [requestCompanyId, requestProfileId, requestProfileRole]);
+
+  useEffect(() => {
+    if (!requestProfileId) return;
+
+    const refresh = () => { void refreshPendingRequests(); };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    refresh();
+    const intervalId = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [activePage, refreshPendingRequests, requestProfileId]);
 
   useEffect(() => {
     if (dashboard.status !== 'ready' || !activePage || requestedPage === activePage) return;
@@ -317,6 +378,7 @@ export default function AdminDashboard() {
             page={activePage}
             profile={profile}
             companyName={companyName}
+            onRequestsChanged={() => { void refreshPendingRequests(); }}
           />
         )}
       </main>

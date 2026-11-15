@@ -35,8 +35,33 @@ alter table public.employee_requests
   add column if not exists requested_admin_id uuid references public.profiles(id) on delete set null,
   add column if not exists requested_admin_email text;
 
+create table if not exists public.account_deletion_requests (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  company_id bigint not null references public.companies(id) on delete cascade,
+  requested_admin_id uuid references public.profiles(id) on delete set null,
+  status public.request_status not null default 'pending',
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists account_deletion_requests_company_status_idx
+on public.account_deletion_requests(company_id, status);
+create unique index if not exists account_deletion_requests_one_pending_per_user_idx
+on public.account_deletion_requests(user_id)
+where status = 'pending';
+alter table public.account_deletion_requests enable row level security;
+drop trigger if exists account_deletion_requests_set_updated_at on public.account_deletion_requests;
+create trigger account_deletion_requests_set_updated_at before update on public.account_deletion_requests
+for each row execute function public.set_updated_at();
+
 alter table public.employee_requests
   drop constraint if exists one_request_per_employee_company;
+
+alter table public.employee_requests
+  drop constraint if exists one_employee_request;
 
 alter table public.employee_requests
   add constraint one_employee_request unique (employee_id);
@@ -44,6 +69,7 @@ alter table public.employee_requests
 drop policy if exists "Employees create employee requests" on public.employee_requests;
 drop policy if exists "Admins view employee requests" on public.employee_requests;
 drop policy if exists "Admins review employee requests" on public.employee_requests;
+drop policy if exists "Employees and assigned admins view employee requests" on public.employee_requests;
 
 create policy "Employees and assigned admins view employee requests"
 on public.employee_requests for select to authenticated
@@ -56,6 +82,147 @@ using (
     and company_id = public.current_company_id()
   )
 );
+
+drop policy if exists "Users and assigned admins view account deletion requests" on public.account_deletion_requests;
+create policy "Users and assigned admins view account deletion requests"
+on public.account_deletion_requests for select to authenticated
+using (
+  user_id = auth.uid()
+  or requested_admin_id = auth.uid()
+  or (
+    public.current_user_role() = 'company_admin'
+    and company_id = public.current_company_id()
+  )
+);
+
+create or replace function public.request_account_deletion()
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requester public.profiles%rowtype;
+  target_admin public.profiles%rowtype;
+  request_id bigint;
+begin
+  select * into requester
+  from public.profiles
+  where id = auth.uid()
+    and status = 'active'
+    and role = 'employee'
+    and company_id is not null;
+
+  if not found then
+    raise exception 'An active employee account is required to request account deletion';
+  end if;
+
+  select * into target_admin
+  from public.profiles
+  where company_id = requester.company_id
+    and role = 'company_admin'
+    and status = 'active'
+  order by created_at
+  limit 1;
+
+  if not found then
+    select * into target_admin
+    from public.profiles
+    where role = 'super_admin'
+      and status = 'active'
+    order by created_at
+    limit 1;
+  end if;
+
+  if target_admin.id is null then
+    raise exception 'No active company administrator or Superadmin can review this request';
+  end if;
+
+  insert into public.account_deletion_requests (user_id, company_id, requested_admin_id)
+  values (requester.id, requester.company_id, target_admin.id)
+  returning id into request_id;
+
+  insert into public.notifications (user_id, title, message)
+  select admin.id, 'Account deletion request', requester.display_name || ' requested account deletion.'
+  from public.profiles admin
+  where admin.company_id = requester.company_id
+    and admin.role = 'company_admin'
+    and admin.status = 'active';
+
+  if not found then
+    insert into public.notifications (user_id, title, message)
+    values (target_admin.id, 'Account deletion request', requester.display_name || ' requested account deletion.');
+  end if;
+
+  return request_id;
+end;
+$$;
+
+revoke all on function public.request_account_deletion() from public, anon;
+grant execute on function public.request_account_deletion() to authenticated;
+
+create or replace function public.review_account_deletion_request(
+  p_request_id bigint,
+  p_reviewer_id uuid,
+  p_accept boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  request_row public.account_deletion_requests%rowtype;
+  reviewer public.profiles%rowtype;
+begin
+  select * into reviewer
+  from public.profiles
+  where id = p_reviewer_id
+    and status = 'active'
+    and role in ('company_admin', 'super_admin');
+
+  if not found then
+    raise exception 'An active admin account is required';
+  end if;
+
+  select * into request_row
+  from public.account_deletion_requests
+  where id = p_request_id
+  for update;
+
+  if not found or request_row.status <> 'pending' then
+    raise exception 'This account deletion request is no longer pending';
+  end if;
+
+  if reviewer.role = 'company_admin' and reviewer.company_id = request_row.company_id then
+    null;
+  elsif reviewer.role = 'super_admin' and request_row.requested_admin_id = reviewer.id then
+    null;
+  else
+    raise exception 'You are not authorized to review this request';
+  end if;
+
+  if p_accept then
+    update public.profiles
+    set status = 'deleted'
+    where id = request_row.user_id
+      and status = 'active';
+
+    if not found then
+      raise exception 'The requested account is no longer active';
+    end if;
+  end if;
+
+  update public.account_deletion_requests
+  set status = case when p_accept then 'accepted'::public.request_status else 'declined'::public.request_status end,
+      reviewed_by = reviewer.id,
+      reviewed_at = now()
+  where id = request_row.id;
+end;
+$$;
+
+revoke all on function public.review_account_deletion_request(bigint, uuid, boolean) from public, anon, authenticated;
+grant execute on function public.review_account_deletion_request(bigint, uuid, boolean) to service_role;
 
 create or replace function public.current_company_id()
 returns bigint
@@ -185,12 +352,17 @@ begin
     'pending'
   );
 
-  insert into public.notifications (user_id, title, message)
-  values (
-    target_admin.id,
-    'Employee request',
-    requested_name || ' requested access to Frigo.'
-  );
+  if target_admin.role = 'company_admin' then
+    insert into public.notifications (user_id, title, message)
+    select p.id, 'Employee request', requested_name || ' requested access to Frigo.'
+    from public.profiles p
+    where p.company_id = assigned_company_id
+      and p.role = 'company_admin'
+      and p.status = 'active';
+  else
+    insert into public.notifications (user_id, title, message)
+    values (target_admin.id, 'Employee request', requested_name || ' requested access to Frigo.');
+  end if;
 
   return new;
 end;
@@ -382,8 +554,7 @@ begin
       approved_company_id := p_company_id;
     end if;
   elsif reviewer.role = 'company_admin'
-    and reviewer.company_id = request_row.company_id
-    and request_row.requested_admin_id = reviewer.id then
+    and reviewer.company_id = request_row.company_id then
     approved_company_id := reviewer.company_id;
   else
     raise exception 'You are not authorized to review this request';

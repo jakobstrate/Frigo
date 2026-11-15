@@ -94,11 +94,19 @@ async function verifyAvatarPath(avatarPath: string | null, companyId: number) {
 }
 
 async function assignPendingRequests(companyId: number, adminId: string, adminEmail: string) {
-  const { error } = await supabaseAdmin
-    .from('employee_requests')
-    .update({ requested_admin_id: adminId, requested_admin_email: adminEmail })
-    .eq('company_id', companyId)
-    .eq('status', 'pending');
+  const [employeeRequests, deletionRequests] = await Promise.all([
+    supabaseAdmin
+      .from('employee_requests')
+      .update({ requested_admin_id: adminId, requested_admin_email: adminEmail })
+      .eq('company_id', companyId)
+      .eq('status', 'pending'),
+    supabaseAdmin
+      .from('account_deletion_requests')
+      .update({ requested_admin_id: adminId })
+      .eq('company_id', companyId)
+      .eq('status', 'pending'),
+  ]);
+  const error = employeeRequests.error ?? deletionRequests.error;
   if (error) throw new Error(`The administrator was saved, but pending requests could not be reassigned: ${error.message}`);
 }
 
@@ -146,6 +154,73 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
+    if (body.action === 'review-account-deletion-request') {
+      const requestId = positiveId(body.requestId);
+      if (requestId === null || typeof body.accept !== 'boolean') {
+        return jsonResponse(400, { error: 'Choose a valid account deletion request and review decision.' });
+      }
+
+      const { data: deletionRequest, error: requestError } = await supabaseAdmin
+        .from('account_deletion_requests')
+        .select('id, user_id, company_id, requested_admin_id, status')
+        .eq('id', requestId)
+        .maybeSingle();
+      if (requestError) return jsonResponse(500, { error: `Could not load the account deletion request: ${requestError.message}` });
+      if (!deletionRequest || deletionRequest.status !== 'pending') {
+        return jsonResponse(404, { error: 'This account deletion request is no longer pending.' });
+      }
+      if (actor.role === 'company_admin' && deletionRequest.company_id !== actor.company_id) {
+        return jsonResponse(403, { error: 'You can only review requests from your own company.' });
+      }
+      if (actor.role === 'super_admin' && deletionRequest.requested_admin_id !== actor.id) {
+        return jsonResponse(403, { error: 'Only the assigned Superadmin can review this request.' });
+      }
+
+      if (body.accept) {
+        const { data: target, error: targetError } = await supabaseAdmin
+          .from('profiles')
+          .select('id, status')
+          .eq('id', deletionRequest.user_id)
+          .maybeSingle();
+        if (targetError) return jsonResponse(500, { error: `Could not load the requested account: ${targetError.message}` });
+        if (!target || target.status !== 'active') {
+          return jsonResponse(409, { error: 'The requested account is no longer active.' });
+        }
+
+        const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(target.id, {
+          ban_duration: '876000h',
+        });
+        if (banError) return jsonResponse(500, { error: `Could not block login for this user: ${banError.message}` });
+      }
+
+      const { error: reviewError } = await supabaseAdmin.rpc('review_account_deletion_request', {
+        p_request_id: requestId,
+        p_reviewer_id: actor.id,
+        p_accept: body.accept,
+      });
+      if (reviewError) {
+        let rollbackMessage = '';
+        if (body.accept) {
+          const { data: currentRequest, error: currentRequestError } = await supabaseAdmin
+            .from('account_deletion_requests')
+            .select('status')
+            .eq('id', requestId)
+            .maybeSingle();
+          if (!currentRequestError && currentRequest?.status !== 'accepted') {
+            const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(deletionRequest.user_id, {
+              ban_duration: 'none',
+            });
+            if (rollbackError) rollbackMessage = ` Login rollback also failed: ${rollbackError.message}`;
+          } else if (currentRequestError) {
+            rollbackMessage = ` Login status could not be verified and remains blocked: ${currentRequestError.message}`;
+          }
+        }
+        return jsonResponse(409, { error: `Could not review the deletion request: ${reviewError.message}.${rollbackMessage}` });
+      }
+
+      return jsonResponse(200, { requestId, status: body.accept ? 'accepted' : 'declined' });
+    }
+
     if (body.action === 'restore') {
       if (actor.role !== 'super_admin') {
         return jsonResponse(403, { error: 'Only a Superadmin can restore deleted users.' });

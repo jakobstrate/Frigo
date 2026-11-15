@@ -59,6 +59,18 @@ create table public.employee_requests (
   constraint one_request_per_employee_company unique (employee_id, company_id)
 );
 
+create table public.account_deletion_requests (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  company_id bigint not null references public.companies(id) on delete cascade,
+  requested_admin_id uuid references public.profiles(id) on delete set null,
+  status public.request_status not null default 'pending',
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.departments (
   id bigint generated always as identity primary key,
   company_id bigint not null references public.companies(id) on delete cascade,
@@ -213,6 +225,10 @@ create table public.audit_history (
 create index profiles_company_idx on public.profiles(company_id);
 create index profiles_department_idx on public.profiles(department_id);
 create index employee_requests_company_status_idx on public.employee_requests(company_id, status);
+create index account_deletion_requests_company_status_idx on public.account_deletion_requests(company_id, status);
+create unique index account_deletion_requests_one_pending_per_user_idx
+on public.account_deletion_requests(user_id)
+where status = 'pending';
 create index products_company_category_idx on public.products(company_id, category_id);
 create index department_products_company_idx on public.department_products(company_id, department_id, product_id);
 create index favorites_user_idx on public.favorites(user_id, created_at desc);
@@ -231,6 +247,8 @@ for each row execute function public.set_updated_at();
 create trigger products_set_updated_at before update on public.products
 for each row execute function public.set_updated_at();
 create trigger employee_requests_set_updated_at before update on public.employee_requests
+for each row execute function public.set_updated_at();
+create trigger account_deletion_requests_set_updated_at before update on public.account_deletion_requests
 for each row execute function public.set_updated_at();
 create trigger department_products_set_updated_at before update on public.department_products
 for each row execute function public.set_updated_at();
@@ -489,6 +507,7 @@ for each row execute function public.prevent_company_admin_role_escalation();
 alter table public.companies enable row level security;
 alter table public.profiles enable row level security;
 alter table public.employee_requests enable row level security;
+alter table public.account_deletion_requests enable row level security;
 alter table public.departments enable row level security;
 alter table public.categories enable row level security;
 alter table public.products enable row level security;
