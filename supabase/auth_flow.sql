@@ -660,6 +660,34 @@ with check (
   )
 );
 
+create or replace function public.prevent_inactive_product_purchase()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  product_is_active boolean;
+begin
+  -- Serialize purchase insertion with concurrent product deactivation.
+  select p.active into product_is_active
+  from public.products p
+  where p.id = new.product_id
+  for share;
+
+  if not found or product_is_active is not true then
+    raise exception 'Produktet er ikke længere aktivt. Opdater produktlisten, og prøv igen.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists purchases_require_active_product on public.purchases;
+create trigger purchases_require_active_product
+before insert on public.purchases
+for each row execute function public.prevent_inactive_product_purchase();
+
 insert into storage.buckets (id, name, public)
 values ('profile-images', 'profile-images', false)
 on conflict (id) do update
@@ -704,3 +732,26 @@ using (
     )
   )
 );
+
+do $$
+declare
+  catalog_table text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise exception 'Supabase Realtime publication does not exist';
+  end if;
+
+  foreach catalog_table in array array['products', 'categories', 'department_products', 'profiles']
+  loop
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = catalog_table
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', catalog_table);
+    end if;
+  end loop;
+end;
+$$;
