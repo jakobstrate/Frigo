@@ -1,13 +1,22 @@
 import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 
-const colors = { background: '#F5F7F2', ink: '#19251F', muted: '#69766E', line: '#DCE4DB', green: '#247451', white: '#FFFFFF', red: '#A33D36' };
+const webColor = (web: string, native: string) => Platform.OS === 'web' ? web : native;
+const colors = {
+  background: webColor('#EEF2F5', '#F5F7F2'),
+  ink: webColor('#1B2140', '#19251F'),
+  muted: webColor('#5B6475', '#69766E'),
+  line: webColor('#E3E7FF', '#DCE4DB'),
+  green: webColor('#1E7A46', '#247451'),
+  white: webColor('#EEF2F5', '#FFFFFF'),
+  red: webColor('#B70909', '#A33D36'),
+};
 
 type RequestState = {
   profileStatus: string;
@@ -99,8 +108,8 @@ const styles = StyleSheet.create({
   content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 30 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, position: 'absolute', top: 28, left: 28 },
   messageBlock: { alignItems: 'center', gap: 13 },
-  statusMark: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#DFEEE5', alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
-  declinedMark: { backgroundColor: '#F4E2DF' },
+  statusMark: { width: 58, height: 58, borderRadius: 29, backgroundColor: webColor('#E3E7FF', '#DFEEE5'), alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  declinedMark: { backgroundColor: webColor('#E3E7FF', '#F4E2DF') },
   statusMarkText: { color: colors.green, fontSize: 26, fontWeight: '700' },
   eyebrow: { color: colors.green, fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },
   title: { color: colors.ink, fontSize: 27, lineHeight: 34, textAlign: 'center', fontWeight: '700' },

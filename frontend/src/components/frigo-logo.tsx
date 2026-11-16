@@ -29,7 +29,7 @@ export function FrigoLogo({ size = 36, tone = 'dark', style }: FrigoLogoProps) {
       accessibilityLabel="FriGo"
       style={[styles.lockup, { gap: size * 0.24 }, style]}>
       <FrigoLogoIcon size={size} />
-      <Text accessible={false} style={[styles.wordmark, { color: tone === 'light' ? '#fff' : '#19251F', fontSize: size * 0.62 }]}>
+      <Text accessible={false} style={[styles.wordmark, { color: tone === 'light' ? '#EEF2F5' : '#1B2140', fontSize: size * 0.62 }]}>
         FriGo
       </Text>
     </View>
