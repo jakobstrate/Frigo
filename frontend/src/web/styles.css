@@ -325,8 +325,9 @@
 }
 .frigo-admin-overview-control-group button.is-selected { border-color: #102de0; color: #fff; background: #102de0; }
 .frigo-admin-overview-control-group button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
-.frigo-admin-overview-table-scroll { overflow-x: auto; }
+.frigo-admin-overview-table-scroll { max-height: min(65vh, 680px); overflow: auto; overscroll-behavior: contain; }
 .frigo-admin-overview-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
+.frigo-admin-overview-table thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
 .frigo-admin-overview-table th, .frigo-admin-overview-table td { padding: 13px 10px; border-bottom: 1px solid #edf0f5; color: #26304e; font-size: 13px; }
 .frigo-admin-overview-table thead th { color: #596581; font-weight: 500; }
 .frigo-admin-overview-table tbody th { color: #182552; font-weight: 650; }
@@ -583,7 +584,7 @@
 .frigo-admin-registration-summary article span { overflow: hidden; color: #596581; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .frigo-admin-registration-summary article strong { overflow: hidden; color: #182552; font-size: 21px; text-overflow: ellipsis; white-space: nowrap; }
 .frigo-admin-registration-table-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
-.frigo-admin-registration-table-scroll { overflow-x: auto; padding: 4px 14px; }
+.frigo-admin-registration-table-scroll { max-height: min(65vh, 680px); overflow: auto; padding: 4px 14px; overscroll-behavior: contain; }
 .frigo-admin-registration-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
 .frigo-admin-registration-table th, .frigo-admin-registration-table td { padding: 13px 10px; border-bottom: 1px solid #edf0f5; color: #26304e; font-size: 13px; }
 .frigo-admin-registration-table thead th { color: #596581; font-weight: 500; }
@@ -811,7 +812,7 @@
 .frigo-department-create-fields .frigo-admin-primary-button { min-height: 42px; margin: 0; padding: 0 17px; }
 .frigo-department-create-fields input:disabled { background: #f5f6f9; }
 .frigo-department-section-header { margin: 22px 0 14px; }
-.frigo-department-list { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
+.frigo-department-list { max-height: min(65vh, 680px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
 .frigo-department-card {
   display: flex;
   min-height: 100px;
@@ -921,8 +922,9 @@
 .frigo-user-filters button { min-height: 42px; margin: 0; padding: 0 18px; border: 1px solid #dce1ed; border-radius: 22px; color: #58627a; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
 .frigo-user-filters button.is-selected { border-color: #102de0; color: #fff; background: #102de0; }
 .frigo-user-filters button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
-.frigo-user-table-wrap { width: 100%; overflow-x: auto; }
+.frigo-user-table-wrap { width: 100%; max-height: min(65vh, 680px); overflow: auto; overscroll-behavior: contain; }
 .frigo-user-table { width: 100%; border-collapse: collapse; text-align: left; }
+.frigo-user-table thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
 .frigo-user-table th { padding: 16px 20px; border-bottom: 1px solid #edf0f5; color: #727d96; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .frigo-user-table th:last-child { text-align: right; }
 .frigo-user-table td { padding: 15px 20px; border-bottom: 1px solid #f0f2f6; color: #202b49; font-size: 14px; vertical-align: middle; }
@@ -995,8 +997,9 @@
 .frigo-products-create-button svg { width: 15px; height: 15px; }
 .frigo-products-layout { display: grid; grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); align-items: start; gap: 18px; }
 .frigo-products-categories, .frigo-products-table-panel { border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
-.frigo-products-categories { display: flex; flex-direction: column; padding: 18px 16px 16px; }
+.frigo-products-categories { display: flex; min-height: 0; max-height: min(65vh, 680px); flex-direction: column; padding: 18px 16px 16px; }
 .frigo-products-categories h2 { margin: 0 4px 12px; color: #182552; font-size: 16px; }
+.frigo-products-category-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .frigo-product-category-filter { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px; color: #18213d; background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .frigo-product-category-filter:hover, .frigo-product-category-filter.is-selected { color: #111c68; background: #e7eaff; }
 .frigo-product-category-filter.is-selected { font-weight: 700; }
@@ -1006,7 +1009,7 @@
 .frigo-products-edit-categories:hover { background: #f5f6ff; }
 .frigo-products-edit-categories svg { width: 14px; height: 14px; }
 .frigo-products-table-panel { min-width: 0; overflow: hidden; }
-.frigo-products-table-scroll { width: 100%; overflow-x: auto; padding: 12px 20px; }
+.frigo-products-table-scroll { width: 100%; max-height: min(75vh, 800px); overflow-x: auto; overflow-y: auto; padding: 12px 20px; overscroll-behavior: contain; }
 .frigo-products-table { width: 100%; border-collapse: collapse; text-align: left; }
 .frigo-products-table th { height: 54px; padding: 16px 12px; border-bottom: 1px solid #edf0f5; color: #727d96; font-size: 13px; font-weight: 600; }
 .frigo-products-table td { height: 72px; padding: 14px 12px; border-top: 1px solid #f0f2f6; color: #202b49; font-size: 14px; white-space: nowrap; }

@@ -696,33 +696,35 @@ export default function ProductManagement() {
         <div className="frigo-products-layout">
           <aside className="frigo-products-categories">
             <h2>Kategorier</h2>
-            <button
-              className={`frigo-product-category-filter${categoryFilter === null ? ' is-selected' : ''}`}
-              type="button"
-              onClick={() => setCategoryFilter(null)}
-              aria-pressed={categoryFilter === null}
-            >
-              <span>Alle</span><small>{products.length}</small>
-            </button>
-            {filterCategories.map((category) => (
+            <div className="frigo-products-category-list">
               <button
-                className={`frigo-product-category-filter${categoryFilter === category.id ? ' is-selected' : ''}`}
+                className={`frigo-product-category-filter${categoryFilter === null ? ' is-selected' : ''}`}
                 type="button"
-                key={category.id}
-                onClick={() => setCategoryFilter(category.id)}
-                aria-pressed={categoryFilter === category.id}
+                onClick={() => setCategoryFilter(null)}
+                aria-pressed={categoryFilter === null}
               >
-                <span>{category.name}</span><small>{productCounts.get(category.id) ?? 0}</small>
+                <span>Alle</span><small>{products.length}</small>
               </button>
-            ))}
-            <button
-              className={`frigo-product-category-filter${categoryFilter === 'uncategorized' ? ' is-selected' : ''}`}
-              type="button"
-              onClick={() => setCategoryFilter('uncategorized')}
-              aria-pressed={categoryFilter === 'uncategorized'}
-            >
-              <span>Uden kategori</span><small>{uncategorizedCount}</small>
-            </button>
+              {filterCategories.map((category) => (
+                <button
+                  className={`frigo-product-category-filter${categoryFilter === category.id ? ' is-selected' : ''}`}
+                  type="button"
+                  key={category.id}
+                  onClick={() => setCategoryFilter(category.id)}
+                  aria-pressed={categoryFilter === category.id}
+                >
+                  <span>{category.name}</span><small>{productCounts.get(category.id) ?? 0}</small>
+                </button>
+              ))}
+              <button
+                className={`frigo-product-category-filter${categoryFilter === 'uncategorized' ? ' is-selected' : ''}`}
+                type="button"
+                onClick={() => setCategoryFilter('uncategorized')}
+                aria-pressed={categoryFilter === 'uncategorized'}
+              >
+                <span>Uden kategori</span><small>{uncategorizedCount}</small>
+              </button>
+            </div>
             <button className="frigo-products-edit-categories" type="button" onClick={() => setShowCategories(true)}>
               <ProductIcon kind="edit" /> Rediger kategorier
             </button>
