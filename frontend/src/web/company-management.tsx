@@ -461,7 +461,7 @@ export default function CompanyManagement() {
     const [companiesResult, departmentsResult, profilesResult] = await Promise.all([
       supabase.from('companies').select('id, name, status').neq('status', 'deleted').order('name'),
       supabase.from('departments').select('id, company_id, name').order('name'),
-      supabase.from('profiles').select('id, company_id, role, status, display_name, email'),
+      supabase.from('profiles').select('id, company_id, role, status, invitation_completed, display_name, email').neq('status', 'deleted'),
     ]);
 
     const queryError = companiesResult.error ?? departmentsResult.error ?? profilesResult.error;
@@ -480,7 +480,7 @@ export default function CompanyManagement() {
 
     const profileCounts = new Map<number, { companyAdmins: number; employees: number; admins: CompanyAdminDetails[] }>();
     for (const profile of profilesResult.data ?? []) {
-      if (profile.company_id === null) continue;
+      if (profile.company_id === null || !profile.invitation_completed) continue;
       const counts = profileCounts.get(profile.company_id) ?? { companyAdmins: 0, employees: 0, admins: [] };
       if (profile.role === 'company_admin') {
         counts.companyAdmins += 1;

@@ -67,7 +67,7 @@ export default function AdminOverview() {
             .order('name'),
           supabase
             .from('profiles')
-            .select('company_id, role, status')
+            .select('company_id, role, status, invitation_completed')
             .neq('status', 'deleted'),
           supabase
             .from('purchases')
@@ -85,7 +85,7 @@ export default function AdminOverview() {
 
         const countsByCompany = new Map<number, { companyAdmins: number; activeUsers: number; inactiveUsers: number }>();
         for (const profile of profilesResult.data ?? []) {
-          if (profile.company_id === null) continue;
+          if (profile.company_id === null || !profile.invitation_completed) continue;
           const counts = countsByCompany.get(profile.company_id) ?? {
             companyAdmins: 0,
             activeUsers: 0,

@@ -13,7 +13,10 @@ if (!supabaseUrl || !supabasePublishableKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+const configuredSupabaseUrl: string = supabaseUrl;
+const configuredSupabasePublishableKey: string = supabasePublishableKey;
+
+export const supabase = createClient(configuredSupabaseUrl, configuredSupabasePublishableKey, {
   auth: {
     storage: authStorage,
     autoRefreshToken: true,
@@ -21,3 +24,13 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     detectSessionInUrl: false,
   },
 });
+
+export function createInviteAuthClient() {
+  return createClient(configuredSupabaseUrl, configuredSupabasePublishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}

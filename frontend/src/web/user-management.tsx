@@ -13,6 +13,7 @@ type ManagedUser = {
   email: string;
   role: UserRole;
   status: UserStatus;
+  invitation_completed: boolean;
   company_id: number | null;
   department_id: number | null;
   avatar_path: string | null;
@@ -48,12 +49,14 @@ function roleLabel(role: UserRole) {
   return role === 'company_admin' ? 'Virksomhedsadmin' : 'Medarbejder';
 }
 
-function statusLabel(status: UserStatus) {
+function statusLabel(status: UserStatus, invitationCompleted = true) {
+  if (status === 'deleted') return 'Slettet';
+  if (!invitationCompleted) return 'Afventer adgangskode';
   if (status === 'active') return 'Aktiv';
   if (status === 'inactive') return 'Inaktiv';
   if (status === 'pending') return 'Afventer';
   if (status === 'rejected') return 'Afvist';
-  return 'Slettet';
+  return 'Inaktiv';
 }
 
 function UserAvatar({ user }: { user: Pick<ManagedUser, 'display_name' | 'avatar_url'> }) {
@@ -175,7 +178,7 @@ function UserModal({
   const canChooseRole = actorRole === 'super_admin';
   const canChooseCompany = actorRole === 'super_admin';
   const showCompanyField = actorRole === 'super_admin';
-  const canEditStatus = user?.status === 'active' || user?.status === 'inactive';
+  const canEditStatus = user?.invitation_completed && (user.status === 'active' || user.status === 'inactive');
   const imagePreview = previewUrl || user?.avatar_url || '';
   const canUseImage = selectedCompanyId !== null && (!user || actorRole === 'super_admin' || user.role === 'employee');
 
@@ -282,14 +285,16 @@ function UserModal({
                     <option value="active">Aktiv</option>
                     <option value="inactive">Inaktiv</option>
                   </>
-                ) : <option value={status}>{statusLabel(status)}</option>}
+                ) : <option value={status}>{statusLabel(status, user.invitation_completed)}</option>}
               </select>
-              {!canEditStatus && <p className="frigo-admin-modal-help">Afventende brugere håndteres under Anmodninger.</p>}
+              {!user.invitation_completed
+                ? <p className="frigo-admin-modal-help">Brugeren bliver aktiv, når adgangskoden er oprettet fra invitationsmailen.</p>
+                : !canEditStatus && <p className="frigo-admin-modal-help">Afventende brugere håndteres under Anmodninger.</p>}
               {user.avatar_url && <p className="frigo-admin-modal-help">Profilbilledet kan ikke ændres her.</p>}
             </div>
           )}
 
-          {!user && <p className="frigo-admin-modal-help">Brugeren bliver godkendt med det samme og får en e-mail med login.</p>}
+          {!user && <p className="frigo-admin-modal-help">Brugeren bliver aktiv, når adgangskoden er oprettet fra invitationsmailen.</p>}
           {formError && <p className="frigo-admin-error" role="alert">{formError}</p>}
           <div className="frigo-admin-modal-actions">
             <button className="frigo-admin-secondary-button" type="button" onClick={onClose} disabled={isSaving}>Annuller</button>
@@ -413,7 +418,7 @@ export default function UserManagement({
 
     let profileQuery = supabase
       .from('profiles')
-      .select('id, display_name, email, role, status, company_id, department_id, avatar_path')
+      .select('id, display_name, email, role, status, invitation_completed, company_id, department_id, avatar_path')
       .order('display_name');
     profileQuery = statusFilter === 'deleted'
       ? profileQuery.eq('status', 'deleted')
@@ -534,7 +539,7 @@ export default function UserManagement({
     setEditingUser(null);
     setNotice(userId
       ? 'Brugeren er opdateret.'
-      : `Brugeren er oprettet, godkendt og inviteret til ${input.email}.`);
+      : `Brugeren er oprettet og inviteret til ${input.email}. Kontoen bliver aktiv, når adgangskoden er oprettet.`);
     await loadUsers();
     return null;
   }
@@ -675,7 +680,11 @@ export default function UserManagement({
                         <small className="frigo-user-department">{departmentName}</small>
                       </td>
                       <td><span className={`frigo-user-role-chip is-${user.role}`}>{roleLabel(user.role)}</span></td>
-                      <td><span className={`frigo-user-status is-${user.status}`}>{statusLabel(user.status)}</span></td>
+                      <td>
+                        <span className={`frigo-user-status is-${user.status === 'deleted' ? 'deleted' : user.invitation_completed ? user.status : 'pending'}`}>
+                          {statusLabel(user.status, user.invitation_completed)}
+                        </span>
+                      </td>
                       <td>
                         <div className="frigo-user-actions">
                           {user.status === 'deleted' ? (

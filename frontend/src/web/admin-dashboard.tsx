@@ -166,10 +166,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let isMounted = true;
+    let loadVersion = 0;
 
     async function loadDashboard() {
+      const currentVersion = ++loadVersion;
+      const isCurrentLoad = () => isMounted && currentVersion === loadVersion;
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (!isMounted) return;
+      if (!isCurrentLoad()) return;
       if (sessionError) {
         setDashboard({ status: 'error', message: sessionError.message });
         return;
@@ -187,7 +190,7 @@ export default function AdminDashboard() {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (!isMounted) return;
+      if (!isCurrentLoad()) return;
       if (profileError) {
         setDashboard({ status: 'error', message: profileError.message });
         return;
@@ -220,7 +223,7 @@ export default function AdminDashboard() {
           .select('name')
           .eq('id', currentProfile.company_id)
           .maybeSingle();
-        if (!isMounted) return;
+        if (!isCurrentLoad()) return;
         if (companyError) {
           setDashboard({ status: 'error', message: companyError.message });
           return;
@@ -230,7 +233,7 @@ export default function AdminDashboard() {
 
       const { count: pendingRequestCount, error: requestsError } = await getPendingRequestCount(currentProfile);
 
-      if (!isMounted) return;
+      if (!isCurrentLoad()) return;
       setDashboard({
         status: 'ready',
         profile: currentProfile,
@@ -240,9 +243,26 @@ export default function AdminDashboard() {
       });
     }
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') return;
+
+      loadVersion += 1;
+      setDashboard({ status: 'loading' });
+      if (event === 'SIGNED_OUT') {
+        router.replace('/' as Href);
+        return;
+      }
+
+      window.setTimeout(() => {
+        if (isMounted) void loadDashboard();
+      }, 0);
+    });
+
     void loadDashboard();
     return () => {
       isMounted = false;
+      loadVersion += 1;
+      subscription.unsubscribe();
     };
   }, []);
 

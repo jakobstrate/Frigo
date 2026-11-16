@@ -4,10 +4,11 @@ import { supabase } from '@/backend/src/supabase';
 import type { AdminRole } from '@/frontend/src/web/admin-access';
 
 type Company = { id: number; name: string };
-type Department = { id: number; name: string };
+type Department = { id: number; name: string; company_id: number };
 type Purchase = {
   id: number;
   purchaser_id: string;
+  company_id: number;
   purchaser_name: string;
   department_id: number | null;
   department_name: string;
@@ -20,6 +21,7 @@ type Period = { id: string; start: Date; end: Date; endExclusive: Date; label: s
 type EmployeeSummary = {
   id: string;
   name: string;
+  company: string;
   department: string;
   amount: number;
   total: number;
@@ -120,20 +122,22 @@ function toCsvCell(value: string | number) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
-async function loadPurchases(companyId: number, period: Period) {
+async function loadPurchases(companyIds: number | number[] | null, period: Period) {
   const pageSize = 1000;
   const purchases: Purchase[] = [];
+  if (Array.isArray(companyIds) && companyIds.length === 0) return { data: purchases, error: null };
 
   for (let offset = 0; ; offset += pageSize) {
-    const result = await supabase
+    let query = supabase
       .from('purchases')
-      .select('id, purchaser_id, purchaser_name, department_id, department_name, product_name, amount, total_price, created_at')
-      .eq('company_id', companyId)
+      .select('id, purchaser_id, company_id, purchaser_name, department_id, department_name, product_name, amount, total_price, created_at')
       .gte('created_at', period.start.toISOString())
       .lt('created_at', period.endExclusive.toISOString())
       .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(offset, offset + pageSize - 1);
+      .order('id', { ascending: true });
+    if (typeof companyIds === 'number') query = query.eq('company_id', companyIds);
+    else if (companyIds !== null) query = query.in('company_id', companyIds);
+    const result = await query.range(offset, offset + pageSize - 1);
     if (result.error) return { data: null, error: result.error };
 
     const page = result.data ?? [];
@@ -157,7 +161,7 @@ export default function RegistrationManagement({
   const [draftPreset, setDraftPreset] = useState<PeriodPreset>('current');
   const periodPickerRef = useRef<HTMLDivElement>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | 'all' | null>(
     role === 'company_admin' ? companyId : null,
   );
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -172,7 +176,11 @@ export default function RegistrationManagement({
   const [companyError, setCompanyError] = useState('');
   const [dataError, setDataError] = useState('');
 
-  const activeCompanyId = role === 'super_admin' ? selectedCompanyId : companyId;
+  const activeCompanyId = role === 'super_admin'
+    ? typeof selectedCompanyId === 'number' ? selectedCompanyId : null
+    : companyId;
+  const isAllCompanies = role === 'super_admin' && selectedCompanyId === 'all';
+  const hasCompanySelection = role === 'super_admin' ? selectedCompanyId !== null : companyId !== null;
 
   useEffect(() => {
     if (role !== 'super_admin') return;
@@ -194,9 +202,9 @@ export default function RegistrationManagement({
         const availableCompanies = data ?? [];
         setCompanies(availableCompanies);
         setSelectedCompanyId((currentId) =>
-          availableCompanies.some((company) => company.id === currentId)
+          currentId === 'all' || (typeof currentId === 'number' && availableCompanies.some((company) => company.id === currentId))
             ? currentId
-            : availableCompanies[0]?.id ?? null,
+            : null,
         );
       }
       setIsLoadingCompanies(false);
@@ -211,7 +219,7 @@ export default function RegistrationManagement({
   useEffect(() => {
     let isMounted = true;
     async function loadCompanyData() {
-      if (activeCompanyId === null) {
+      if (!hasCompanySelection || (isAllCompanies && isLoadingCompanies)) {
         setDepartments([]);
         setPurchases([]);
         setDataError('');
@@ -222,13 +230,21 @@ export default function RegistrationManagement({
       setIsLoading(true);
       setDataError('');
       setPurchases([]);
+      let departmentsQuery = supabase
+        .from('departments')
+        .select('id, name, company_id')
+        .order('name');
+      if (activeCompanyId !== null) {
+        departmentsQuery = departmentsQuery.eq('company_id', activeCompanyId);
+      } else if (companies.length > 0) {
+        departmentsQuery = departmentsQuery.in('company_id', companies.map((company) => company.id));
+      }
+      const departmentsRequest = isAllCompanies && companies.length === 0
+        ? Promise.resolve({ data: [], error: null })
+        : departmentsQuery;
       const [departmentsResult, purchasesResult] = await Promise.all([
-        supabase
-          .from('departments')
-          .select('id, name')
-          .eq('company_id', activeCompanyId)
-          .order('name'),
-        loadPurchases(activeCompanyId, selectedPeriod),
+        departmentsRequest,
+        loadPurchases(isAllCompanies ? companies.map((company) => company.id) : activeCompanyId, selectedPeriod),
       ]);
 
       if (!isMounted) return;
@@ -248,7 +264,7 @@ export default function RegistrationManagement({
     return () => {
       isMounted = false;
     };
-  }, [activeCompanyId, selectedPeriod]);
+  }, [activeCompanyId, companies, hasCompanySelection, isAllCompanies, isLoadingCompanies, selectedPeriod]);
 
   const visiblePurchases = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase('da-DK');
@@ -264,11 +280,13 @@ export default function RegistrationManagement({
   }, [purchases, search, selectedDepartmentId]);
 
   const employeeSummaries = useMemo(() => {
+    const companyNames = new Map(companies.map((company) => [company.id, company.name]));
     const byEmployee = new Map<string, EmployeeSummary>();
     for (const purchase of visiblePurchases) {
       const summary = byEmployee.get(purchase.purchaser_id) ?? {
         id: purchase.purchaser_id,
         name: purchase.purchaser_name,
+        company: companyNames.get(purchase.company_id) ?? 'Virksomhed',
         department: purchase.department_name,
         amount: 0,
         total: 0,
@@ -278,7 +296,7 @@ export default function RegistrationManagement({
       byEmployee.set(purchase.purchaser_id, summary);
     }
     return [...byEmployee.values()].sort((first, second) => first.name.localeCompare(second.name, 'da'));
-  }, [visiblePurchases]);
+  }, [companies, visiblePurchases]);
 
   const totalSpending = visiblePurchases.reduce((total, purchase) => total + Number(purchase.total_price), 0);
   const totalGoods = visiblePurchases.reduce((total, purchase) => total + purchase.amount, 0);
@@ -412,22 +430,37 @@ export default function RegistrationManagement({
 
   function exportCsv(exportView: RegistrationView) {
     const headings = exportView === 'employee'
-      ? ['Medarbejder', 'Afdeling', 'Antal varer', 'Beløb']
-      : ['Dato', 'Medarbejder', 'Afdeling', 'Produkt', 'Antal', 'Beløb'];
+      ? isAllCompanies
+        ? ['Medarbejder', 'Virksomhed', 'Afdeling', 'Antal varer', 'Beløb']
+        : ['Medarbejder', 'Afdeling', 'Antal varer', 'Beløb']
+      : isAllCompanies
+        ? ['Dato', 'Medarbejder', 'Virksomhed', 'Afdeling', 'Produkt', 'Antal', 'Beløb']
+        : ['Dato', 'Medarbejder', 'Afdeling', 'Produkt', 'Antal', 'Beløb'];
     const rows = exportView === 'employee'
-      ? employeeSummaries.map((employee) => [
-        employee.name,
-        employee.department,
-        employee.amount,
-        formatCurrency(employee.total),
-      ])
+      ? employeeSummaries.map((employee) => isAllCompanies
+        ? [
+          employee.name,
+          employee.company,
+          employee.department,
+          employee.amount,
+          formatCurrency(employee.total),
+        ]
+        : [
+          employee.name,
+          employee.department,
+          employee.amount,
+          formatCurrency(employee.total),
+        ])
       : visiblePurchases.map((purchase) => [
-        formatDateTime(new Date(purchase.created_at)),
-        purchase.purchaser_name,
-        purchase.department_name,
-        purchase.product_name,
-        purchase.amount,
-        formatCurrency(Number(purchase.total_price)),
+        ...[
+          formatDateTime(new Date(purchase.created_at)),
+          purchase.purchaser_name,
+          ...(isAllCompanies ? [companies.find((company) => company.id === purchase.company_id)?.name ?? 'Virksomhed'] : []),
+          purchase.department_name,
+          purchase.product_name,
+          purchase.amount,
+          formatCurrency(Number(purchase.total_price)),
+        ],
       ]);
     const csv = [headings, ...rows].map((row) => row.map(toCsvCell).join(';')).join('\r\n');
     const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -454,7 +487,7 @@ export default function RegistrationManagement({
               aria-haspopup="menu"
               aria-expanded={isExportMenuOpen}
               onClick={() => setIsExportMenuOpen((isOpen) => !isOpen)}
-              disabled={isLoading || activeCompanyId === null}
+              disabled={isLoading || !hasCompanySelection}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" /></svg>
               Eksportér CSV
@@ -593,15 +626,17 @@ export default function RegistrationManagement({
           <label>
             Virksomhed
             <select
-              value={selectedCompanyId ?? ''}
+              value={selectedCompanyId === 'all' ? 'all' : selectedCompanyId ?? ''}
               onChange={(event) => {
-                setSelectedCompanyId(event.target.value ? Number(event.target.value) : null);
+                const value = event.target.value;
+                setSelectedCompanyId(value === 'all' ? 'all' : value ? Number(value) : null);
                 setSelectedDepartmentId('all');
               }}
               disabled={isLoadingCompanies}
               aria-label="Vælg virksomhed"
             >
               <option value="">{isLoadingCompanies ? 'Indlæser...' : 'Vælg virksomhed'}</option>
+              <option value="all">Alle virksomheder</option>
               {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
             </select>
           </label>
@@ -611,13 +646,15 @@ export default function RegistrationManagement({
           <select
             value={selectedDepartmentId}
             onChange={(event) => setSelectedDepartmentId(event.target.value)}
-            disabled={activeCompanyId === null || isLoading}
+            disabled={!hasCompanySelection || isLoading}
             aria-label="Vælg afdeling"
           >
             <option value="all">Alle afdelinger</option>
             <option value="company-wide">Hele virksomheden</option>
             {departments.map((department) => (
-              <option key={department.id} value={department.id}>{department.name}</option>
+              <option key={department.id} value={department.id}>
+                {department.name}{isAllCompanies ? ` (${companies.find((company) => company.id === department.company_id)?.name ?? 'Virksomhed'})` : ''}
+              </option>
             ))}
           </select>
         </label>
@@ -678,19 +715,26 @@ export default function RegistrationManagement({
           <div className="frigo-admin-registration-table-scroll">
             <table className="frigo-admin-registration-table">
               <thead>
-                <tr><th>Medarbejder</th><th>Afdeling</th><th className="is-numeric">Antal varer</th><th className="is-numeric">Beløb</th></tr>
+                <tr>
+                  <th>Medarbejder</th>
+                  {isAllCompanies && <th>Virksomhed</th>}
+                  <th>Afdeling</th>
+                  <th className="is-numeric">Antal varer</th>
+                  <th className="is-numeric">Beløb</th>
+                </tr>
               </thead>
               <tbody>
                 {employeeSummaries.map((employee) => (
                   <tr key={employee.id}>
                     <th scope="row">{employee.name}</th>
+                    {isAllCompanies && <td>{employee.company}</td>}
                     <td>{employee.department}</td>
                     <td className="is-numeric">{employee.amount}</td>
                     <td className="is-numeric">{formatCurrency(employee.total)}</td>
                   </tr>
                 ))}
                 <tr className="frigo-admin-registration-total">
-                  <th scope="row" colSpan={2}>I alt</th>
+                  <th scope="row" colSpan={isAllCompanies ? 3 : 2}>I alt</th>
                   <td className="is-numeric">{totalGoods}</td>
                   <td className="is-numeric">{formatCurrency(totalSpending)}</td>
                 </tr>
@@ -701,13 +745,24 @@ export default function RegistrationManagement({
           <div className="frigo-admin-registration-table-scroll">
             <table className="frigo-admin-registration-table">
               <thead>
-                <tr><th>Dato</th><th>Medarbejder</th><th>Afdeling</th><th>Produkt</th><th className="is-numeric">Antal</th><th className="is-numeric">Beløb</th></tr>
+                <tr>
+                  <th>Dato</th>
+                  <th>Medarbejder</th>
+                  {isAllCompanies && <th>Virksomhed</th>}
+                  <th>Afdeling</th>
+                  <th>Produkt</th>
+                  <th className="is-numeric">Antal</th>
+                  <th className="is-numeric">Beløb</th>
+                </tr>
               </thead>
               <tbody>
                 {visiblePurchases.map((purchase) => (
                   <tr key={purchase.id}>
                     <td>{formatDate(new Date(purchase.created_at))}</td>
                     <th scope="row">{purchase.purchaser_name}</th>
+                    {isAllCompanies && (
+                      <td>{companies.find((company) => company.id === purchase.company_id)?.name ?? 'Virksomhed'}</td>
+                    )}
                     <td>{purchase.department_name}</td>
                     <td>{purchase.product_name}</td>
                     <td className="is-numeric">{purchase.amount}</td>

@@ -34,6 +34,7 @@ create table public.profiles (
   email text not null,
   role public.app_role not null default 'employee',
   status public.user_status not null default 'pending',
+  invitation_completed boolean not null default true,
   company_id bigint references public.companies(id) on delete restrict,
   department_id bigint,
   avatar_path text,
@@ -405,6 +406,18 @@ returns trigger
 language plpgsql
 as $$
 begin
+  if tg_table_name = 'profiles' then
+    if not exists (
+      select 1 from public.purchases where purchaser_id = old.id
+    ) and not exists (
+      select 1 from public.payments where user_id = old.id
+    ) and not exists (
+      select 1 from public.payment_provider_accounts where user_id = old.id
+    ) then
+      return old;
+    end if;
+  end if;
+
   if old.deleted_at is null or old.deleted_at > now() - interval '5 years' then
     raise exception 'Record must be soft-deleted for at least five years before permanent deletion';
   end if;
@@ -435,7 +448,10 @@ stable
 security definer
 set search_path = public
 as $$
-  select role from public.profiles where id = auth.uid();
+  select role
+  from public.profiles
+  where id = auth.uid()
+    and status = 'active';
 $$;
 
 create or replace function public.current_company_id()
@@ -491,6 +507,23 @@ begin
     if tg_op = 'DELETE' then
       return old;
     end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+    and old.role = 'company_admin'
+    and old.status = 'active'
+    and new.role = 'company_admin'
+    and new.status = 'inactive'
+    and new.company_id = old.company_id
+    and not new.invitation_completed
+    and exists (
+      select 1
+      from auth.users u
+      where u.id = old.id
+        and u.invited_at is not null
+        and coalesce(u.encrypted_password, '') = ''
+    ) then
     return new;
   end if;
 

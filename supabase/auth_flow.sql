@@ -3,7 +3,8 @@
 
 alter table public.profiles
   add column if not exists department_id bigint,
-  add column if not exists avatar_path text;
+  add column if not exists avatar_path text,
+  add column if not exists invitation_completed boolean not null default true;
 
 alter table public.profiles
   drop constraint if exists employees_need_a_company;
@@ -239,6 +240,19 @@ as $$
     and (p.company_id is null or c.status = 'active');
 $$;
 
+create or replace function public.current_user_role()
+returns public.app_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role
+  from public.profiles
+  where id = auth.uid()
+    and status = 'active';
+$$;
+
 create or replace function public.current_department_id()
 returns bigint
 language sql
@@ -416,14 +430,15 @@ begin
   ) as department;
 
   if p_admin_id is not null then
-    insert into public.profiles (id, display_name, email, role, status, company_id)
+    insert into public.profiles (id, display_name, email, role, status, company_id, invitation_completed)
     values (
       p_admin_id,
       trim(p_admin_name),
       lower(trim(p_admin_email)),
       'company_admin',
-      'active',
-      created_company_id
+      'inactive',
+      created_company_id,
+      false
     );
   end if;
 
@@ -433,6 +448,73 @@ $$;
 
 revoke all on function public.create_company_without_admin(text, text[], uuid, text, text) from public, anon, authenticated;
 grant execute on function public.create_company_without_admin(text, text[], uuid, text, text) to service_role;
+
+create or replace function public.activate_invited_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invited_profile public.profiles%rowtype;
+  password_is_set boolean;
+  has_active_company_admin boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in through the invitation link to activate this account';
+  end if;
+
+  select * into invited_profile
+  from public.profiles
+  where id = auth.uid()
+  for update;
+
+  if not found or invited_profile.invitation_completed or invited_profile.status <> 'inactive' then
+    raise exception 'There is no pending invitation for this account';
+  end if;
+
+  select coalesce(nullif(u.encrypted_password, ''), '') <> ''
+  into password_is_set
+  from auth.users u
+  where u.id = auth.uid();
+
+  if not coalesce(password_is_set, false) then
+    raise exception 'Create a password before activating this account';
+  end if;
+
+  select exists (
+    select 1
+    from public.profiles p
+    where p.company_id = invited_profile.company_id
+      and p.role = 'company_admin'
+      and p.status = 'active'
+      and p.id <> invited_profile.id
+  ) into has_active_company_admin;
+
+  update public.profiles
+  set status = 'active',
+      invitation_completed = true
+  where id = invited_profile.id;
+
+  if invited_profile.role = 'company_admin'
+    and invited_profile.company_id is not null
+    and not has_active_company_admin then
+    update public.employee_requests
+    set requested_admin_id = invited_profile.id,
+        requested_admin_email = invited_profile.email
+    where company_id = invited_profile.company_id
+      and status = 'pending';
+
+    update public.account_deletion_requests
+    set requested_admin_id = invited_profile.id
+    where company_id = invited_profile.company_id
+      and status = 'pending';
+  end if;
+end;
+$$;
+
+revoke all on function public.activate_invited_account() from public, anon;
+grant execute on function public.activate_invited_account() to authenticated;
 
 create or replace function public.prevent_last_company_admin_delete()
 returns trigger
@@ -447,6 +529,23 @@ begin
     if tg_op = 'DELETE' then
       return old;
     end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+    and old.role = 'company_admin'
+    and old.status = 'active'
+    and new.role = 'company_admin'
+    and new.status = 'inactive'
+    and new.company_id = old.company_id
+    and not new.invitation_completed
+    and exists (
+      select 1
+      from auth.users u
+      where u.id = old.id
+        and u.invited_at is not null
+        and coalesce(u.encrypted_password, '') = ''
+    ) then
     return new;
   end if;
 
@@ -475,6 +574,16 @@ begin
   return new;
 end;
 $$;
+
+update public.profiles p
+set status = 'inactive',
+    invitation_completed = false
+from auth.users u
+where p.id = u.id
+  and p.status = 'active'
+  and p.invitation_completed
+  and u.invited_at is not null
+  and coalesce(u.encrypted_password, '') = '';
 
 create or replace function public.prevent_company_admin_role_escalation()
 returns trigger
@@ -509,6 +618,30 @@ $$;
 
 revoke all on function public.soft_delete_company(bigint) from public, anon, authenticated;
 grant execute on function public.soft_delete_company(bigint) to service_role;
+
+create or replace function public.prevent_early_hard_delete()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_table_name = 'profiles' then
+    if not exists (
+      select 1 from public.purchases where purchaser_id = old.id
+    ) and not exists (
+      select 1 from public.payments where user_id = old.id
+    ) and not exists (
+      select 1 from public.payment_provider_accounts where user_id = old.id
+    ) then
+      return old;
+    end if;
+  end if;
+
+  if old.deleted_at is null or old.deleted_at > now() - interval '5 years' then
+    raise exception 'Record must be soft-deleted for at least five years before permanent deletion';
+  end if;
+  return old;
+end;
+$$;
 
 create or replace function public.review_employee_request(
   p_request_id bigint,

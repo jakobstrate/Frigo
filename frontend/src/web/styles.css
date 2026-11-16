@@ -112,6 +112,36 @@
   .frigo-login-form-panel { padding: 30px 22px 46px; }
   .frigo-login-card { max-width: 390px; }
 }
+.frigo-invite-page { --login-blue: #071bd8; }
+.frigo-invite-card { width: min(100%, 420px); padding: 32px 34px 34px; border-radius: 18px; box-shadow: none; }
+.frigo-invite-back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: var(--login-blue);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.frigo-invite-back-link:hover { text-decoration: underline; }
+.frigo-web .frigo-invite-card h2 { margin-bottom: 18px; font-size: 23px; }
+.frigo-web .frigo-invite-card label { font-size: 12px; }
+.frigo-web .frigo-invite-card input { height: 44px; }
+.frigo-invite-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 2px 0 4px;
+  padding: 0;
+  color: #647286;
+  font-size: 11px;
+  line-height: 1.45;
+  list-style: none;
+}
+.frigo-invite-requirements li { white-space: nowrap; }
+.frigo-invite-requirements li.is-passed { color: #16834b; }
+.frigo-web .frigo-invite-card form > button[type='submit'] { min-height: 44px; margin-top: 6px; font-size: 14px; }
+.frigo-invite-card .frigo-web-error { overflow-wrap: anywhere; }
+.frigo-invite-card .frigo-invite-back-link:focus-visible { outline: 2px solid #5b51f0; outline-offset: 3px; }
 
 .frigo-web * { box-sizing: border-box; }
 .frigo-web-header {
