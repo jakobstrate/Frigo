@@ -1,5 +1,5 @@
-import { router, type Href } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { router, type Href } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { Fingerprint, ScanFace } from 'lucide-react-native';
