@@ -271,7 +271,7 @@ export default function DepartmentManagement({
         setSelectedCompanyId((currentId) =>
           availableCompanies.some((company) => company.id === currentId)
             ? currentId
-            : availableCompanies[0]?.id ?? null,
+            : null,
         );
       }
       setIsLoadingCompanies(false);
@@ -540,8 +540,14 @@ export default function DepartmentManagement({
             }}
             disabled={isLoadingCompanies || companies.length === 0 || isSaving}
           >
-            {companies.length === 0 && <option value="">Ingen virksomheder</option>}
-            {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+            {companies.length === 0 ? (
+              <option value="">{isLoadingCompanies ? 'Indlæser virksomheder...' : 'Ingen virksomheder'}</option>
+            ) : (
+              <>
+                <option value="">Vælg virksomhed</option>
+                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </>
+            )}
           </select>
         </section>
       )}
@@ -577,7 +583,9 @@ export default function DepartmentManagement({
       {isLoadingCompanies ? (
         <div className="frigo-admin-company-message" role="status">Indlæser virksomheder...</div>
       ) : selectedCompanyId === null ? (
-        <div className="frigo-admin-company-message">Der er ingen virksomheder at administrere.</div>
+        <div className="frigo-admin-company-message">
+          {companies.length === 0 ? 'Der er ingen virksomheder at administrere.' : 'Vælg en virksomhed for at administrere afdelinger.'}
+        </div>
       ) : isLoading ? (
         <div className="frigo-admin-company-message" role="status">Indlæser afdelinger...</div>
       ) : departments.length > 0 ? (
