@@ -625,6 +625,41 @@ using (
   )
 );
 
+alter table public.purchases
+  alter column department_id drop not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.purchases'::regclass
+      and conname = 'purchases_product_id_fkey'
+  ) then
+    alter table public.purchases
+      add constraint purchases_product_id_fkey
+      foreign key (product_id) references public.products(id) on delete restrict;
+  end if;
+end;
+$$;
+
+drop policy if exists "Company members create purchases" on public.purchases;
+create policy "Company members create purchases"
+on public.purchases for insert to authenticated
+with check (
+  (company_id = public.current_company_id() or public.is_super_admin())
+  and purchaser_id = auth.uid()
+  and (
+    (department_id is null and public.current_department_id() is null)
+    or department_id = public.current_department_id()
+  )
+  and exists (
+    select 1
+    from public.products p
+    where p.id = purchases.product_id and p.active
+  )
+);
+
 insert into storage.buckets (id, name, public)
 values ('profile-images', 'profile-images', false)
 on conflict (id) do update

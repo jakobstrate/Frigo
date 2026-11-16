@@ -177,8 +177,8 @@ create table public.purchases (
   id bigint generated always as identity primary key,
   purchaser_id uuid not null references public.profiles(id) on delete restrict,
   company_id bigint not null references public.companies(id) on delete restrict,
-  department_id bigint not null,
-  product_id bigint not null,
+  department_id bigint,
+  product_id bigint not null references public.products(id) on delete restrict,
   purchaser_name text not null,
   department_name text not null,
   product_name text not null,
@@ -766,7 +766,19 @@ using (public.is_super_admin() or company_id = public.current_company_id());
 
 create policy "Company members create purchases"
 on public.purchases for insert to authenticated
-with check ((company_id = public.current_company_id() or public.is_super_admin()) and purchaser_id = auth.uid());
+with check (
+  (company_id = public.current_company_id() or public.is_super_admin())
+  and purchaser_id = auth.uid()
+  and (
+    (department_id is null and public.current_department_id() is null)
+    or department_id = public.current_department_id()
+  )
+  and exists (
+    select 1
+    from public.products p
+    where p.id = purchases.product_id and p.active
+  )
+);
 
 create policy "Admins view payments"
 on public.payments for select to authenticated

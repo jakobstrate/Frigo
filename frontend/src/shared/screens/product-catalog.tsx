@@ -235,24 +235,27 @@ export function ProductCatalog() {
           return;
         }
 
+        const categoriesQuery = supabase
+          .from('categories')
+          .select('id, name, department_id')
+          .or(`company_id.is.null,company_id.eq.${profile.company_id}`)
+          .eq('active', true);
+        const visibleCategoriesQuery = profile.department_id === null
+          ? categoriesQuery
+          : categoriesQuery.or(`department_id.is.null,department_id.eq.${profile.department_id}`);
+
         const [companyResult, departmentResult, categoriesResult, productsResult, membershipsResult, favoritesResult, purchasesResult, deletionRequestResult] = await Promise.all([
           supabase.from('companies').select('name').eq('id', profile.company_id).maybeSingle(),
-          profile.department_id
+          profile.department_id !== null
             ? supabase.from('departments').select('name').eq('id', profile.department_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
-          supabase
-            .from('categories')
-            .select('id, name, department_id')
-            .or(`company_id.is.null,company_id.eq.${profile.company_id}`)
-            .or(`department_id.is.null,department_id.eq.${profile.department_id ?? -1}`)
-            .eq('active', true)
-            .order('name'),
+          visibleCategoriesQuery.order('name'),
           supabase
             .from('products')
             .select('id, name, description, unit, price, image_path, category_id')
             .eq('active', true)
             .order('name'),
-          profile.department_id
+          profile.department_id !== null
             ? supabase
                 .from('department_products')
                 .select('product_id')
@@ -300,7 +303,9 @@ export function ProductCatalog() {
           company_id: profile.company_id,
           department_id: profile.department_id,
           companyName: companyResult.data?.name ?? '',
-          departmentName: departmentResult.data?.name ?? '',
+          departmentName: profile.department_id === null
+            ? 'Hele virksomheden'
+            : departmentResult.data?.name ?? '',
         });
         setCategories(['Alle', ...new Set((categoriesResult.data ?? []).map((category) => category.name))]);
         setProducts(productRows.map((product, index) => ({
@@ -451,8 +456,8 @@ export function ProductCatalog() {
 
   async function registerCart() {
     if (isRegistering || cartItems.length === 0) return;
-    if (!employeeProfile?.department_id) {
-      setCartNotice('Din afdeling er ikke tilknyttet din profil. Kontakt din administrator.');
+    if (!employeeProfile) {
+      setCartNotice('Din profil kunne ikke indlæses. Log ind igen.');
       Animated.spring(cartSwipeTranslation, { toValue: 0, useNativeDriver: true }).start();
       return;
     }

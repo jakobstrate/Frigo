@@ -25,7 +25,7 @@ supabase functions deploy update-company
 supabase functions deploy manage-users
 ```
 
-For an existing project, apply the updated `supabase/auth_flow.sql` to add account-deletion request support, then redeploy `manage-users`.
+For an existing project, apply the updated `supabase/auth_flow.sql` to add account-deletion request support and allow purchases for employees assigned to "Hele virksomheden", then redeploy `manage-users`.
 
 When a company has no active administrator, the edit dialog can send an invitation to create its first one.
 

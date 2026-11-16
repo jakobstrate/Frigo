@@ -9,7 +9,7 @@ type Purchase = {
   id: number;
   purchaser_id: string;
   purchaser_name: string;
-  department_id: number;
+  department_id: number | null;
   department_name: string;
   product_name: string;
   amount: number;
@@ -254,7 +254,9 @@ export default function RegistrationManagement({
     const normalizedSearch = search.trim().toLocaleLowerCase('da-DK');
     return purchases.filter((purchase) => {
       const matchesDepartment = selectedDepartmentId === 'all'
-        || String(purchase.department_id) === selectedDepartmentId;
+        || (selectedDepartmentId === 'company-wide'
+          ? purchase.department_id === null
+          : String(purchase.department_id) === selectedDepartmentId);
       const matchesName = !normalizedSearch
         || purchase.purchaser_name.toLocaleLowerCase('da-DK').includes(normalizedSearch);
       return matchesDepartment && matchesName;
@@ -411,7 +413,7 @@ export default function RegistrationManagement({
   function exportCsv(exportView: RegistrationView) {
     const headings = exportView === 'employee'
       ? ['Medarbejder', 'Afdeling', 'Antal varer', 'Beløb']
-      : ['Dato', 'Medarbejder', 'Produkt', 'Antal', 'Beløb'];
+      : ['Dato', 'Medarbejder', 'Afdeling', 'Produkt', 'Antal', 'Beløb'];
     const rows = exportView === 'employee'
       ? employeeSummaries.map((employee) => [
         employee.name,
@@ -422,6 +424,7 @@ export default function RegistrationManagement({
       : visiblePurchases.map((purchase) => [
         formatDateTime(new Date(purchase.created_at)),
         purchase.purchaser_name,
+        purchase.department_name,
         purchase.product_name,
         purchase.amount,
         formatCurrency(Number(purchase.total_price)),
@@ -612,6 +615,7 @@ export default function RegistrationManagement({
             aria-label="Vælg afdeling"
           >
             <option value="all">Alle afdelinger</option>
+            <option value="company-wide">Hele virksomheden</option>
             {departments.map((department) => (
               <option key={department.id} value={department.id}>{department.name}</option>
             ))}
@@ -697,13 +701,14 @@ export default function RegistrationManagement({
           <div className="frigo-admin-registration-table-scroll">
             <table className="frigo-admin-registration-table">
               <thead>
-                <tr><th>Dato</th><th>Medarbejder</th><th>Produkt</th><th className="is-numeric">Antal</th><th className="is-numeric">Beløb</th></tr>
+                <tr><th>Dato</th><th>Medarbejder</th><th>Afdeling</th><th>Produkt</th><th className="is-numeric">Antal</th><th className="is-numeric">Beløb</th></tr>
               </thead>
               <tbody>
                 {visiblePurchases.map((purchase) => (
                   <tr key={purchase.id}>
                     <td>{formatDate(new Date(purchase.created_at))}</td>
                     <th scope="row">{purchase.purchaser_name}</th>
+                    <td>{purchase.department_name}</td>
                     <td>{purchase.product_name}</td>
                     <td className="is-numeric">{purchase.amount}</td>
                     <td className="is-numeric">{formatCurrency(Number(purchase.total_price))}</td>
