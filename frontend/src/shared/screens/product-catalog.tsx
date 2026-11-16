@@ -513,12 +513,18 @@ export function ProductCatalog() {
     setBiometricNotice('');
     if (!enabled) {
       try {
-        await SecureStore.deleteItemAsync(biometricCredentialsKey, biometricCredentialsOptions);
-        await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
         await SecureStore.setItemAsync(biometricSetupKey, 'skipped');
-        setBiometricEnabled(false);
       } catch {
         setBiometricNotice('Biometrisk login kunne ikke deaktiveres. Prøv igen.');
+        return;
+      }
+
+      setBiometricEnabled(false);
+      try {
+        await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
+        await SecureStore.deleteItemAsync(biometricCredentialsKey, biometricCredentialsOptions);
+      } catch {
+        setBiometricNotice('Biometrisk login er slået fra, men de gemte loginoplysninger kunne ikke slettes.');
       }
       return;
     }
@@ -1090,9 +1096,13 @@ export function ProductCatalog() {
                 </View>
 
                 <Text style={styles.settingsLabel}>Navn</Text>
-                <Text style={styles.settingsInput}>{employeeProfile?.display_name || 'Ikke angivet'}</Text>
+                <View style={styles.settingsInput}>
+                  <Text style={styles.settingsInputText}>{employeeProfile?.display_name || 'Ikke angivet'}</Text>
+                </View>
                 <Text style={styles.settingsLabel}>E-mail</Text>
-                <Text style={styles.settingsInput}>{employeeProfile?.email || 'Ikke angivet'}</Text>
+                <View style={styles.settingsInput}>
+                  <Text style={styles.settingsInputText}>{employeeProfile?.email || 'Ikke angivet'}</Text>
+                </View>
 
                 <View style={styles.passwordLabelRow}>
                   <View style={styles.passwordLabelGroup}>
@@ -1125,7 +1135,7 @@ export function ProductCatalog() {
                   </View>
                   <View style={styles.biometricSettingCopy}>
                     <Text style={styles.accountRowTitle}>Log ind med Face ID</Text>
-                    <Text style={styles.accountRowSubtitle}>Til. Bruges næste gang du logger ind.</Text>
+                    <Text style={styles.accountRowSubtitle}>{biometricEnabled ? 'Til. Bruges næste gang du logger ind.' : 'Fra. Brug adgangskode til login.'}</Text>
                   </View>
                   <Switch
                     accessibilityLabel="Log ind med Face ID"
@@ -1600,7 +1610,8 @@ const styles = StyleSheet.create({
   outlineButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: colors.line, borderRadius: 23, backgroundColor: colors.white },
   outlineButtonText: { color: colors.blue, fontSize: 13, fontWeight: '600' },
   settingsLabel: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  settingsInput: { minHeight: 48, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white, color: colors.ink, fontSize: 14 },
+  settingsInput: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white },
+  settingsInputText: { color: colors.ink, fontSize: 14 },
   passwordLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 1 },
   passwordLabelGroup: { gap: 4 },
   passwordMask: { color: colors.ink, fontSize: 15, letterSpacing: 1.4 },
