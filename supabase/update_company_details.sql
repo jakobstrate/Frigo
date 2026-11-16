@@ -107,8 +107,8 @@ begin
     end if;
   end loop;
 
-  insert into public.profiles (id, display_name, email, role, status, company_id)
-  values (p_admin_id, trim(p_admin_name), lower(trim(p_admin_email)), 'company_admin', 'active', p_company_id)
+  insert into public.profiles (id, display_name, email, role, status, company_id, invitation_completed)
+  values (p_admin_id, trim(p_admin_name), lower(trim(p_admin_email)), 'company_admin', 'inactive', p_company_id, false)
   on conflict (id) do update
   set display_name = excluded.display_name,
       email = excluded.email

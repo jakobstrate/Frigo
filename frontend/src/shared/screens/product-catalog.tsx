@@ -4,28 +4,28 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import {
-    CalendarDays,
-    Check,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    Clock3,
-    CupSoda,
-    Heart,
-    KeyRound,
-    LayoutGrid,
-    LogOut,
-    Minus,
-    Plus,
-    Search,
-    ShoppingBag,
-    SlidersHorizontal,
-    Trash2,
-    UserRound,
-    X,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  CupSoda,
+  Heart,
+  KeyRound,
+  LayoutGrid,
+  LogOut,
+  Minus,
+  Plus,
+  Search,
+  ShoppingBag,
+  SlidersHorizontal,
+  Trash2,
+  UserRound,
+  X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
@@ -167,6 +167,7 @@ export function ProductCatalog() {
   const [catalogError, setCatalogError] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartNotice, setCartNotice] = useState('');
+  const [cartRegistrationSucceeded, setCartRegistrationSucceeded] = useState(false);
   const [registeredItemCount, setRegisteredItemCount] = useState(0);
   const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -212,6 +213,217 @@ export function ProductCatalog() {
 
   useEffect(() => {
     let isActive = true;
+    let catalogChannel: ReturnType<typeof supabase.channel> | null = null;
+    let catalogRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
+    let catalogRefreshInterval: ReturnType<typeof setInterval> | null = null;
+    let refreshInProgress = false;
+    let refreshQueued = false;
+    let profileRefreshInProgress = false;
+    let profileRefreshQueued = false;
+    let lastCatalogRefreshFailed = false;
+    let catalogScope: Pick<EmployeeProfile, 'id' | 'company_id' | 'department_id'> | null = null;
+    let catalogScopeVersion = 0;
+
+    async function refreshCatalog() {
+      const scope = catalogScope;
+      if (!isActive || !scope) return;
+      if (refreshInProgress) {
+        refreshQueued = true;
+        return;
+      }
+
+      refreshInProgress = true;
+      const requestedScopeVersion = catalogScopeVersion;
+      try {
+        const categoriesQuery = supabase
+          .from('categories')
+          .select('id, name, department_id')
+          .or(`company_id.is.null,company_id.eq.${scope.company_id}`)
+          .eq('active', true);
+        const visibleCategoriesQuery = scope.department_id === null
+          ? categoriesQuery
+          : categoriesQuery.or(`department_id.is.null,department_id.eq.${scope.department_id}`);
+        const [categoriesResult, productsResult] = await Promise.all([
+          visibleCategoriesQuery.order('name'),
+          supabase
+            .from('products')
+            .select('id, name, description, unit, price, image_path, category_id')
+            .eq('active', true)
+            .order('name'),
+        ]);
+
+        if (productsResult.error) throw productsResult.error;
+        if (categoriesResult.error) throw categoriesResult.error;
+
+        const productRows = productsResult.data ?? [];
+        const imagePaths = [...new Set(productRows.map((product) => product.image_path).filter(Boolean))];
+        let imageByPath = new Map<string, string>();
+        let imageLoadFailed = false;
+        if (imagePaths.length > 0) {
+          const { data: signedImages, error: signedImagesError } = await supabase.storage
+            .from('product-images')
+            .createSignedUrls(imagePaths, 3600);
+          if (signedImagesError) {
+            imageLoadFailed = true;
+          } else {
+            imageByPath = new Map((signedImages ?? []).flatMap((image) => image.signedUrl ? [[image.path, image.signedUrl] as [string, string]] : []));
+          }
+        }
+
+        if (!isActive) return;
+        if (requestedScopeVersion !== catalogScopeVersion) {
+          refreshQueued = true;
+          return;
+        }
+        const categoryById = new Map((categoriesResult.data ?? []).map((category) => [category.id, category.name]));
+        setCategories(['Alle', ...new Set((categoriesResult.data ?? []).map((category) => category.name))]);
+        setProducts(productRows.map((product, index) => ({
+          id: product.id,
+          name: product.name,
+          size: product.unit,
+          price: Number(product.price),
+          category: categoryById.get(product.category_id) ?? 'Øvrigt',
+          color: productColors[index % productColors.length],
+          description: product.description ?? '',
+          imageUrl: imageByPath.get(product.image_path) ?? null,
+        })));
+        if (imageLoadFailed) {
+          setCatalogError('Produktbillederne kunne ikke indlæses. Produktikoner vises i stedet.');
+        } else if (lastCatalogRefreshFailed) {
+          setCatalogError('');
+          lastCatalogRefreshFailed = false;
+        }
+      } catch (refreshError) {
+        if (isActive && requestedScopeVersion === catalogScopeVersion) {
+          setCatalogError(refreshError instanceof Error
+            ? `Kataloget kunne ikke opdateres: ${refreshError.message}`
+            : 'Kataloget kunne ikke opdateres. Prøv igen.');
+          lastCatalogRefreshFailed = true;
+        }
+      } finally {
+        refreshInProgress = false;
+        if (isActive && refreshQueued) {
+          refreshQueued = false;
+          void refreshCatalog();
+        }
+      }
+    }
+
+    function scheduleCatalogRefresh() {
+      if (catalogRefreshTimeout) clearTimeout(catalogRefreshTimeout);
+      catalogRefreshTimeout = setTimeout(() => {
+        catalogRefreshTimeout = null;
+        void refreshCatalog();
+      }, 300);
+    }
+
+    async function refreshEmployeeScope() {
+      const currentScope = catalogScope;
+      if (!isActive || !currentScope) return;
+      if (profileRefreshInProgress) {
+        profileRefreshQueued = true;
+        return;
+      }
+
+      profileRefreshInProgress = true;
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, display_name, email, company_id, department_id, status')
+          .eq('id', currentScope.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        if (!profile || profile.status !== 'active' || profile.company_id === null) {
+          router.replace('/pending');
+          return;
+        }
+
+        const departmentChanged = currentScope.company_id !== profile.company_id
+          || currentScope.department_id !== profile.department_id;
+        if (!departmentChanged) return;
+
+        const [companyResult, departmentResult] = await Promise.all([
+          supabase.from('companies').select('name').eq('id', profile.company_id).maybeSingle(),
+          profile.department_id === null
+            ? Promise.resolve({ data: null, error: null })
+            : supabase.from('departments').select('name').eq('id', profile.department_id).maybeSingle(),
+        ]);
+        if (companyResult.error) throw companyResult.error;
+        if (departmentResult.error) throw departmentResult.error;
+        if (!isActive) return;
+
+        catalogScope = {
+          id: profile.id,
+          company_id: profile.company_id,
+          department_id: profile.department_id,
+        };
+        catalogScopeVersion += 1;
+        setActiveCategory('Alle');
+        setEmployeeProfile((current) => current ? {
+          ...current,
+          id: profile.id,
+          display_name: profile.display_name,
+          email: profile.email,
+          company_id: profile.company_id,
+          department_id: profile.department_id,
+          companyName: companyResult.data?.name ?? '',
+          departmentName: profile.department_id === null
+            ? 'Hele virksomheden'
+            : departmentResult.data?.name ?? '',
+        } : current);
+        void refreshCatalog();
+      } catch (profileRefreshError) {
+        if (isActive) {
+          setCatalogError(profileRefreshError instanceof Error
+            ? `Afdelingsoplysningerne kunne ikke opdateres: ${profileRefreshError.message}`
+            : 'Afdelingsoplysningerne kunne ikke opdateres. Prøv igen.');
+        }
+      } finally {
+        profileRefreshInProgress = false;
+        if (isActive && profileRefreshQueued) {
+          profileRefreshQueued = false;
+          void refreshEmployeeScope();
+        }
+      }
+    }
+
+    function startCatalogUpdates(profile: Pick<EmployeeProfile, 'id' | 'company_id' | 'department_id'>) {
+      catalogScope = profile;
+      catalogScopeVersion += 1;
+      catalogChannel = supabase
+        .channel(`employee-catalog-${profile.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+          scheduleCatalogRefresh();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+          scheduleCatalogRefresh();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'department_products' }, () => {
+          scheduleCatalogRefresh();
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`,
+        }, () => {
+          void refreshEmployeeScope();
+        })
+        .subscribe((status) => {
+          if (!isActive) return;
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            setCatalogError('Live opdateringer kunne ikke forbindes. Kataloget tjekkes automatisk med jævne mellemrum.');
+            lastCatalogRefreshFailed = true;
+          }
+        });
+
+      catalogRefreshInterval = setInterval(() => {
+        if (AppState.currentState === 'active') {
+          void refreshEmployeeScope();
+          void refreshCatalog();
+        }
+      }, 5000);
+    }
 
     async function loadEmployeeData() {
       setCatalogLoading(true);
@@ -235,24 +447,27 @@ export function ProductCatalog() {
           return;
         }
 
+        const categoriesQuery = supabase
+          .from('categories')
+          .select('id, name, department_id')
+          .or(`company_id.is.null,company_id.eq.${profile.company_id}`)
+          .eq('active', true);
+        const visibleCategoriesQuery = profile.department_id === null
+          ? categoriesQuery
+          : categoriesQuery.or(`department_id.is.null,department_id.eq.${profile.department_id}`);
+
         const [companyResult, departmentResult, categoriesResult, productsResult, membershipsResult, favoritesResult, purchasesResult, deletionRequestResult] = await Promise.all([
           supabase.from('companies').select('name').eq('id', profile.company_id).maybeSingle(),
-          profile.department_id
+          profile.department_id !== null
             ? supabase.from('departments').select('name').eq('id', profile.department_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
-          supabase
-            .from('categories')
-            .select('id, name, department_id')
-            .or(`company_id.is.null,company_id.eq.${profile.company_id}`)
-            .or(`department_id.is.null,department_id.eq.${profile.department_id ?? -1}`)
-            .eq('active', true)
-            .order('name'),
+          visibleCategoriesQuery.order('name'),
           supabase
             .from('products')
             .select('id, name, description, unit, price, image_path, category_id')
             .eq('active', true)
             .order('name'),
-          profile.department_id
+          profile.department_id !== null
             ? supabase
                 .from('department_products')
                 .select('product_id')
@@ -300,8 +515,11 @@ export function ProductCatalog() {
           company_id: profile.company_id,
           department_id: profile.department_id,
           companyName: companyResult.data?.name ?? '',
-          departmentName: departmentResult.data?.name ?? '',
+          departmentName: profile.department_id === null
+            ? 'Hele virksomheden'
+            : departmentResult.data?.name ?? '',
         });
+        startCatalogUpdates(profile);
         setCategories(['Alle', ...new Set((categoriesResult.data ?? []).map((category) => category.name))]);
         setProducts(productRows.map((product, index) => ({
           id: product.id,
@@ -334,8 +552,30 @@ export function ProductCatalog() {
     }
 
     void loadEmployeeData();
-    return () => { isActive = false; };
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && catalogScope) {
+        void refreshEmployeeScope();
+        void refreshCatalog();
+      }
+    });
+    return () => {
+      isActive = false;
+      appStateSubscription.remove();
+      if (catalogRefreshTimeout) clearTimeout(catalogRefreshTimeout);
+      if (catalogRefreshInterval) clearInterval(catalogRefreshInterval);
+      if (catalogChannel) void supabase.removeChannel(catalogChannel);
+    };
   }, []);
+
+  useEffect(() => {
+    const activeProductIds = new Set(products.map((product) => String(product.id)));
+    if (!Object.keys(cart).some((productId) => !activeProductIds.has(productId))) return;
+    setCartRegistrationSucceeded(false);
+    setCartNotice('Produkter, der ikke længere er aktive, er fjernet fra kurven.');
+    setCart((current) => Object.fromEntries(
+      Object.entries(current).filter(([productId]) => activeProductIds.has(productId)),
+    ));
+  }, [cart, products]);
 
   const shownProducts = useMemo(() => products.filter((product) => {
     const matchesTab = activeTab !== 'favorites' || favorites.includes(product.id);
@@ -418,6 +658,7 @@ export function ProductCatalog() {
 
   function updateCart(productId: number, change: number) {
     setCartNotice('');
+    setCartRegistrationSucceeded(false);
     setCatalogError('');
     cartSwipeTranslation.setValue(0);
     setCart((current) => {
@@ -441,6 +682,7 @@ export function ProductCatalog() {
     setShowCart(false);
     setCart({});
     setCartNotice('');
+    setCartRegistrationSucceeded(false);
     setShowHistoryDetails(false);
     setActiveTab(openHistory ? 'history' : 'products');
     if (!openHistory) {
@@ -451,14 +693,15 @@ export function ProductCatalog() {
 
   async function registerCart() {
     if (isRegistering || cartItems.length === 0) return;
-    if (!employeeProfile?.department_id) {
-      setCartNotice('Din afdeling er ikke tilknyttet din profil. Kontakt din administrator.');
+    if (!employeeProfile) {
+      setCartNotice('Din profil kunne ikke indlæses. Log ind igen.');
       Animated.spring(cartSwipeTranslation, { toValue: 0, useNativeDriver: true }).start();
       return;
     }
 
     setIsRegistering(true);
     setCartNotice('');
+    setCartRegistrationSucceeded(false);
     const itemCount = cartCount;
     const rows = cartItems.map((product) => ({
       purchaser_id: employeeProfile.id,
@@ -483,6 +726,7 @@ export function ProductCatalog() {
         setRegisteredItemCount(itemCount);
         setShowRegistrationSuccess(true);
       }
+      setCartRegistrationSucceeded(true);
       const { data: history, error: historyError } = await supabase
         .from('purchases')
         .select('id, product_name, amount, unit_price, total_price, created_at')
@@ -491,6 +735,7 @@ export function ProductCatalog() {
         .limit(30);
       if (!historyError) setPurchaseHistory(history ?? []);
     } catch (purchaseError) {
+      setCartRegistrationSucceeded(false);
       setCartNotice(purchaseError instanceof Error ? purchaseError.message : 'Registreringen kunne ikke gennemføres. Prøv igen.');
     } finally {
       setIsRegistering(false);
@@ -668,8 +913,10 @@ export function ProductCatalog() {
 
           {cartItems.length === 0 ? (
             <View style={styles.cartEmptyState}>
-              {cartNotice ? <Check color={colors.green} size={40} strokeWidth={2.5} /> : <ShoppingBag color={colors.blue} size={38} strokeWidth={1.8} />}
-              <Text style={styles.cartEmptyTitle}>{cartNotice ? 'Registrering gennemført' : 'Kurven er tom'}</Text>
+              {cartRegistrationSucceeded
+                ? <Check color={colors.green} size={40} strokeWidth={2.5} />
+                : <ShoppingBag color={colors.blue} size={38} strokeWidth={1.8} />}
+              <Text style={styles.cartEmptyTitle}>{cartRegistrationSucceeded ? 'Registrering gennemført' : 'Kurven er tom'}</Text>
               <Text style={styles.emptyText}>{cartNotice || 'Vælg et produkt for at lægge det i kurven.'}</Text>
               <Pressable accessibilityRole="button" onPress={() => setShowCart(false)} style={styles.cartContinueButton}>
                 <Text style={styles.cartContinueText}>Se produkter</Text>

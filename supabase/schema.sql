@@ -34,6 +34,7 @@ create table public.profiles (
   email text not null,
   role public.app_role not null default 'employee',
   status public.user_status not null default 'pending',
+  invitation_completed boolean not null default true,
   company_id bigint references public.companies(id) on delete restrict,
   department_id bigint,
   avatar_path text,
@@ -177,8 +178,8 @@ create table public.purchases (
   id bigint generated always as identity primary key,
   purchaser_id uuid not null references public.profiles(id) on delete restrict,
   company_id bigint not null references public.companies(id) on delete restrict,
-  department_id bigint not null,
-  product_id bigint not null,
+  department_id bigint,
+  product_id bigint not null references public.products(id) on delete restrict,
   purchaser_name text not null,
   department_name text not null,
   product_name text not null,
@@ -186,9 +187,49 @@ create table public.purchases (
   unit_price numeric(10, 2) not null check (unit_price >= 0),
   total_price numeric(12, 2) generated always as (amount * unit_price) stored,
   created_at timestamptz not null default now(),
-  foreign key (department_id, product_id, company_id)
-    references public.department_products(department_id, product_id, company_id) on delete restrict
+  foreign key (department_id, company_id)
+    references public.departments(id, company_id) on delete restrict
 );
+
+create or replace function public.prevent_inactive_product_purchase()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  product_is_active boolean;
+begin
+  -- Serialize purchase insertion with concurrent product deactivation.
+  select p.active into product_is_active
+  from public.products p
+  where p.id = new.product_id
+  for share;
+
+  if not found or product_is_active is not true then
+    raise exception 'Produktet er ikke længere aktivt. Opdater produktlisten, og prøv igen.';
+  end if;
+
+  if new.department_id is not null then
+    perform 1
+    from public.department_products dp
+    where dp.department_id = new.department_id
+      and dp.product_id = new.product_id
+      and dp.company_id = new.company_id
+    for share;
+
+    if not found then
+      raise exception 'Produktet er ikke længere tilgængeligt for din afdeling.';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger purchases_require_active_product
+before insert on public.purchases
+for each row execute function public.prevent_inactive_product_purchase();
 
 create table public.payments (
   id bigint generated always as identity primary key,
@@ -365,6 +406,18 @@ returns trigger
 language plpgsql
 as $$
 begin
+  if tg_table_name = 'profiles' then
+    if not exists (
+      select 1 from public.purchases where purchaser_id = old.id
+    ) and not exists (
+      select 1 from public.payments where user_id = old.id
+    ) and not exists (
+      select 1 from public.payment_provider_accounts where user_id = old.id
+    ) then
+      return old;
+    end if;
+  end if;
+
   if old.deleted_at is null or old.deleted_at > now() - interval '5 years' then
     raise exception 'Record must be soft-deleted for at least five years before permanent deletion';
   end if;
@@ -395,7 +448,10 @@ stable
 security definer
 set search_path = public
 as $$
-  select role from public.profiles where id = auth.uid();
+  select role
+  from public.profiles
+  where id = auth.uid()
+    and status = 'active';
 $$;
 
 create or replace function public.current_company_id()
@@ -451,6 +507,23 @@ begin
     if tg_op = 'DELETE' then
       return old;
     end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+    and old.role = 'company_admin'
+    and old.status = 'active'
+    and new.role = 'company_admin'
+    and new.status = 'inactive'
+    and new.company_id = old.company_id
+    and not new.invitation_completed
+    and exists (
+      select 1
+      from auth.users u
+      where u.id = old.id
+        and u.invited_at is not null
+        and coalesce(u.encrypted_password, '') = ''
+    ) then
     return new;
   end if;
 
@@ -766,7 +839,19 @@ using (public.is_super_admin() or company_id = public.current_company_id());
 
 create policy "Company members create purchases"
 on public.purchases for insert to authenticated
-with check ((company_id = public.current_company_id() or public.is_super_admin()) and purchaser_id = auth.uid());
+with check (
+  (company_id = public.current_company_id() or public.is_super_admin())
+  and purchaser_id = auth.uid()
+  and (
+    (department_id is null and public.current_department_id() is null)
+    or department_id = public.current_department_id()
+  )
+  and exists (
+    select 1
+    from public.products p
+    where p.id = purchases.product_id and p.active
+  )
+);
 
 create policy "Admins view payments"
 on public.payments for select to authenticated
@@ -866,3 +951,26 @@ using (
     )
   )
 );
+
+do $$
+declare
+  catalog_table text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise exception 'Supabase Realtime publication does not exist';
+  end if;
+
+  foreach catalog_table in array array['products', 'categories', 'department_products', 'profiles']
+  loop
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = catalog_table
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', catalog_table);
+    end if;
+  end loop;
+end;
+$$;

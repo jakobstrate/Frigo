@@ -112,6 +112,36 @@
   .frigo-login-form-panel { padding: 30px 22px 46px; }
   .frigo-login-card { max-width: 390px; }
 }
+.frigo-invite-page { --login-blue: #071bd8; }
+.frigo-invite-card { width: min(100%, 420px); padding: 32px 34px 34px; border-radius: 18px; box-shadow: none; }
+.frigo-invite-back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: var(--login-blue);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.frigo-invite-back-link:hover { text-decoration: underline; }
+.frigo-web .frigo-invite-card h2 { margin-bottom: 18px; font-size: 23px; }
+.frigo-web .frigo-invite-card label { font-size: 12px; }
+.frigo-web .frigo-invite-card input { height: 44px; }
+.frigo-invite-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 2px 0 4px;
+  padding: 0;
+  color: #647286;
+  font-size: 11px;
+  line-height: 1.45;
+  list-style: none;
+}
+.frigo-invite-requirements li { white-space: nowrap; }
+.frigo-invite-requirements li.is-passed { color: #16834b; }
+.frigo-web .frigo-invite-card form > button[type='submit'] { min-height: 44px; margin-top: 6px; font-size: 14px; }
+.frigo-invite-card .frigo-web-error { overflow-wrap: anywhere; }
+.frigo-invite-card .frigo-invite-back-link:focus-visible { outline: 2px solid #5b51f0; outline-offset: 3px; }
 
 .frigo-web * { box-sizing: border-box; }
 .frigo-web-header {
@@ -288,7 +318,7 @@
 .frigo-admin-summary-card strong { color: #182552; font-size: 21px; }
 .frigo-admin-summary-card > span:last-child { color: var(--admin-muted); font-size: 12px; }
 .frigo-admin-summary-label { color: #737d99; font-size: 11px; font-weight: 700; }
-.frigo-admin-overview-period { margin: 4px 0 16px; color: #727da4; font-size: 12px; }
+.frigo-admin-overview-period { margin: 4px 0 16px; color: #727da4; font-size: 14px; }
 .frigo-admin-overview-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .frigo-admin-overview-card {
   display: flex;
@@ -303,15 +333,15 @@
   background: #fff;
   box-shadow: 0 3px 14px rgb(24 33 61 / 3%);
 }
-.frigo-admin-overview-card > span { color: #596581; font-size: 11px; font-weight: 600; }
-.frigo-admin-overview-card strong { overflow: hidden; color: #182552; font-size: 22px; text-overflow: ellipsis; white-space: nowrap; }
-.frigo-admin-overview-card small { overflow: hidden; color: var(--admin-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.frigo-admin-overview-card > span { color: #596581; font-size: 14px; font-weight: 600; }
+.frigo-admin-overview-card strong { overflow: hidden; color: #182552; font-size: 24px; text-overflow: ellipsis; white-space: nowrap; }
+.frigo-admin-overview-card small { overflow: hidden; color: var(--admin-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .frigo-admin-overview-table-panel { overflow: hidden; padding: 16px; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
 .frigo-admin-overview-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
-.frigo-admin-overview-table-heading h2 { margin: 0; color: #182552; font-size: 15px; }
+.frigo-admin-overview-table-heading h2 { margin: 0; color: #182552; font-size: 18px; }
 .frigo-admin-overview-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .frigo-admin-overview-control-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.frigo-admin-overview-control-group > span { margin-right: 2px; color: #596581; font-size: 10px; }
+.frigo-admin-overview-control-group > span { margin-right: 2px; color: #596581; font-size: 13px; }
 .frigo-admin-overview-control-group button {
   min-height: 27px;
   padding: 0 10px;
@@ -320,20 +350,21 @@
   color: #26304e;
   background: #fff;
   font: inherit;
-  font-size: 10px;
+  font-size: 13px;
   cursor: pointer;
 }
 .frigo-admin-overview-control-group button.is-selected { border-color: #102de0; color: #fff; background: #102de0; }
 .frigo-admin-overview-control-group button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
-.frigo-admin-overview-table-scroll { overflow-x: auto; }
+.frigo-admin-overview-table-scroll { max-height: min(65vh, 680px); overflow: auto; overscroll-behavior: contain; }
 .frigo-admin-overview-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
-.frigo-admin-overview-table th, .frigo-admin-overview-table td { padding: 11px 8px; border-bottom: 1px solid #edf0f5; color: #26304e; font-size: 10px; }
+.frigo-admin-overview-table thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
+.frigo-admin-overview-table th, .frigo-admin-overview-table td { padding: 13px 10px; border-bottom: 1px solid #edf0f5; color: #26304e; font-size: 13px; }
 .frigo-admin-overview-table thead th { color: #596581; font-weight: 500; }
 .frigo-admin-overview-table tbody th { color: #182552; font-weight: 650; }
 .frigo-admin-overview-table tbody tr:last-child th, .frigo-admin-overview-table tbody tr:last-child td { border-bottom: 0; }
-.frigo-admin-overview-status { display: inline-flex; padding: 4px 9px; border-radius: 16px; color: #287c58; background: #e7f5ed; font-size: 9px; font-weight: 700; }
+.frigo-admin-overview-status { display: inline-flex; padding: 5px 10px; border-radius: 16px; color: #287c58; background: #e7f5ed; font-size: 12px; font-weight: 700; }
 .frigo-admin-overview-status.is-inactive { color: #70788c; background: #eef0f5; }
-.frigo-admin-overview-empty { margin: 0; padding: 24px 12px; color: var(--admin-muted); font-size: 12px; text-align: center; }
+.frigo-admin-overview-empty { margin: 0; padding: 24px 12px; color: var(--admin-muted); font-size: 14px; text-align: center; }
 .frigo-admin-panel { padding: 26px; }
 .frigo-admin-panel h2 { margin: 8px 0; color: #182552; font-size: 18px; }
 .frigo-admin-panel > p { margin: 0; color: var(--admin-muted); font-size: 13px; line-height: 1.6; }
@@ -358,7 +389,7 @@
 }
 .frigo-admin-registration-toolbar { display: flex; justify-content: flex-end; }
 .frigo-admin-registration-filters > label,
-.frigo-admin-registration-filter-label { display: flex; min-width: 0; flex-direction: column; gap: 6px; margin: 0; color: #596581; font-size: 10px; font-weight: 600; }
+.frigo-admin-registration-filter-label { display: flex; min-width: 0; flex-direction: column; gap: 6px; margin: 0; color: #596581; font-size: 13px; font-weight: 600; }
 .frigo-admin-registration-filters select, .frigo-admin-registration-filters input, .frigo-admin-registration-locked {
   width: 100%;
   min-width: 0;
@@ -369,7 +400,7 @@
   color: #26304e;
   background: #fff;
   font: inherit;
-  font-size: 11px;
+  font-size: 14px;
 }
 .frigo-admin-period-picker { position: relative; display: flex; min-width: 0; flex-direction: column; gap: 6px; }
 .frigo-admin-period-trigger {
@@ -386,7 +417,7 @@
   color: #26304e;
   background: #fff;
   font: inherit;
-  font-size: 11px;
+  font-size: 14px;
   text-align: left;
   cursor: pointer;
 }
@@ -417,15 +448,15 @@
   color: #26304e;
   background: #fff;
   font: inherit;
-  font-size: 10px;
+  font-size: 13px;
   cursor: pointer;
 }
 .frigo-admin-period-presets button.is-selected { border-color: #102de0; color: #102de0; background: #f0f1ff; }
 .frigo-admin-period-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.frigo-admin-period-inputs label { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: #596581; font-size: 9px; font-weight: 600; }
-.frigo-admin-registration-filters .frigo-admin-period-inputs input { height: 36px; font-size: 10px; }
+.frigo-admin-period-inputs label { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: #596581; font-size: 12px; font-weight: 600; }
+.frigo-admin-registration-filters .frigo-admin-period-inputs input { height: 36px; font-size: 13px; }
 .frigo-admin-period-calendar-navigation { display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; gap: 6px; margin: 9px 0 5px; }
-.frigo-admin-period-calendar-navigation span { color: #596581; font-size: 10px; text-align: center; }
+.frigo-admin-period-calendar-navigation span { color: #596581; font-size: 12px; text-align: center; }
 .frigo-admin-period-calendar-navigation button {
   width: 28px;
   min-height: 28px;
@@ -442,9 +473,9 @@
 }
 .frigo-admin-period-calendar-navigation button:last-child { justify-self: end; }
 .frigo-admin-period-calendars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.frigo-admin-period-calendar-month h3 { margin: 2px 0 6px; color: #26304e; font-size: 10px; font-weight: 650; text-align: center; text-transform: capitalize; }
+.frigo-admin-period-calendar-month h3 { margin: 2px 0 6px; color: #26304e; font-size: 13px; font-weight: 650; text-align: center; text-transform: capitalize; }
 .frigo-admin-period-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px 0; }
-.frigo-admin-period-weekday { display: grid; height: 21px; place-items: center; color: #596581; font-size: 8px; }
+.frigo-admin-period-weekday { display: grid; height: 24px; place-items: center; color: #596581; font-size: 11px; }
 .frigo-admin-registration-filters .frigo-admin-period-calendar-grid .frigo-admin-period-day {
   width: 100%;
   min-width: 0;
@@ -457,7 +488,7 @@
   color: #26304e;
   background: transparent;
   font: inherit;
-  font-size: 9px;
+  font-size: 12px;
   cursor: pointer;
 }
 .frigo-admin-registration-filters .frigo-admin-period-calendar-grid .frigo-admin-period-day.is-outside-month { color: #b7bfce; }
@@ -479,7 +510,7 @@
   color: #26304e;
   background: #fff;
   font: inherit;
-  font-size: 10px;
+  font-size: 13px;
   cursor: pointer;
 }
 .frigo-admin-period-actions .frigo-admin-period-apply { border-color: #102de0; color: #fff; background: #102de0; }
@@ -503,7 +534,7 @@
   color: #39435f;
   background: transparent;
   font: inherit;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -580,12 +611,12 @@
   background: #fff;
   box-shadow: 0 3px 14px rgb(24 33 61 / 3%);
 }
-.frigo-admin-registration-summary article span { overflow: hidden; color: #596581; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.frigo-admin-registration-summary article strong { overflow: hidden; color: #182552; font-size: 19px; text-overflow: ellipsis; white-space: nowrap; }
+.frigo-admin-registration-summary article span { overflow: hidden; color: #596581; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.frigo-admin-registration-summary article strong { overflow: hidden; color: #182552; font-size: 21px; text-overflow: ellipsis; white-space: nowrap; }
 .frigo-admin-registration-table-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
-.frigo-admin-registration-table-scroll { overflow-x: auto; padding: 4px 14px; }
+.frigo-admin-registration-table-scroll { max-height: min(65vh, 680px); overflow: auto; padding: 4px 14px; overscroll-behavior: contain; }
 .frigo-admin-registration-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
-.frigo-admin-registration-table th, .frigo-admin-registration-table td { padding: 11px 8px; border-bottom: 1px solid #edf0f5; color: #26304e; font-size: 10px; }
+.frigo-admin-registration-table th, .frigo-admin-registration-table td { padding: 13px 10px; border-bottom: 1px solid #edf0f5; color: #26304e; font-size: 13px; }
 .frigo-admin-registration-table thead th { color: #596581; font-weight: 500; }
 .frigo-admin-registration-table tbody th { color: #182552; font-weight: 650; }
 .frigo-admin-registration-table .is-numeric { text-align: right; }
@@ -621,28 +652,28 @@
 .frigo-admin-primary-button:disabled, .frigo-admin-secondary-button:disabled { opacity: .55; cursor: wait; }
 .frigo-requests { display: flex; flex-direction: column; gap: 20px; }
 .frigo-requests-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.frigo-requests-intro p { margin: 0; color: #78829a; font-size: 12px; }
+.frigo-requests-intro p { margin: 0; color: #78829a; font-size: 14px; }
 .frigo-request-panel { overflow: hidden; border-radius: 17px; background: #fff; }
 .frigo-request-panel-heading { display: flex; align-items: center; gap: 10px; padding: 18px 22px 14px; border-bottom: 1px solid #edf0f5; }
-.frigo-request-panel-heading h2 { margin: 0; color: #202944; font-size: 15px; }
-.frigo-request-panel-heading > span { display: grid; min-width: 22px; height: 22px; place-items: center; padding: 0 6px; border-radius: 12px; color: #35405d; background: #eef0ff; font-size: 10px; font-weight: 700; }
+.frigo-request-panel-heading h2 { margin: 0; color: #202944; font-size: 18px; }
+.frigo-request-panel-heading > span { display: grid; min-width: 24px; height: 24px; place-items: center; padding: 0 7px; border-radius: 12px; color: #35405d; background: #eef0ff; font-size: 12px; font-weight: 700; }
 .frigo-request-list { padding: 0 16px; }
 .frigo-request-row { display: flex; min-height: 88px; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0f5; }
 .frigo-request-row:last-child { border-bottom: 0; }
 .frigo-request-avatar { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #3649bc; background: #e7eaff; font-size: 11px; font-weight: 700; }
 .frigo-request-avatar.is-deletion { color: #ba3f3b; background: #fde9e8; }
 .frigo-request-person { display: flex; min-width: 180px; flex: 1; flex-direction: column; gap: 3px; }
-.frigo-request-person strong { color: #252e49; font-size: 12px; font-weight: 700; }
-.frigo-request-person > span, .frigo-request-person small { color: #78829a; font-size: 10px; }
+.frigo-request-person strong { color: #252e49; font-size: 15px; font-weight: 700; }
+.frigo-request-person > span, .frigo-request-person small { color: #78829a; font-size: 13px; }
 .frigo-request-person small { white-space: nowrap; }
-.frigo-request-department-field { display: flex; width: 152px; flex: 0 0 auto; flex-direction: column; gap: 4px; color: #65708b; font-size: 9px; }
-.frigo-request-department-field select { width: 100%; height: 36px; padding: 0 10px; border: 1px solid #dce1ed; border-radius: 10px; color: #303a52; background: #fff; font: inherit; font-size: 11px; }
+.frigo-request-department-field { display: flex; width: 152px; flex: 0 0 auto; flex-direction: column; gap: 4px; color: #65708b; font-size: 12px; }
+.frigo-request-department-field select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid #dce1ed; border-radius: 10px; color: #303a52; background: #fff; font: inherit; font-size: 13px; }
 .frigo-request-department-field select:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
 .frigo-request-actions { display: flex; flex: 0 0 auto; gap: 7px; }
 .frigo-request-actions .frigo-admin-primary-button,
 .frigo-request-actions .frigo-admin-secondary-button,
-.frigo-request-actions .frigo-admin-danger-button { min-height: 36px; padding: 0 14px; font-size: 10px; }
-.frigo-request-empty { margin: 0; padding: 22px; color: #78829a; font-size: 12px; }
+.frigo-request-actions .frigo-admin-danger-button { min-height: 40px; padding: 0 14px; font-size: 13px; }
+.frigo-request-empty { margin: 0; padding: 22px; color: #78829a; font-size: 14px; }
 .frigo-admin-company-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .frigo-admin-company-card { min-width: 0; padding: 20px; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
 .frigo-admin-company-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -811,7 +842,7 @@
 .frigo-department-create-fields .frigo-admin-primary-button { min-height: 42px; margin: 0; padding: 0 17px; }
 .frigo-department-create-fields input:disabled { background: #f5f6f9; }
 .frigo-department-section-header { margin: 22px 0 14px; }
-.frigo-department-list { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
+.frigo-department-list { max-height: min(65vh, 680px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
 .frigo-department-card {
   display: flex;
   min-height: 100px;
@@ -921,8 +952,9 @@
 .frigo-user-filters button { min-height: 42px; margin: 0; padding: 0 18px; border: 1px solid #dce1ed; border-radius: 22px; color: #58627a; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
 .frigo-user-filters button.is-selected { border-color: #102de0; color: #fff; background: #102de0; }
 .frigo-user-filters button:focus-visible { outline: 2px solid #3448bd; outline-offset: 2px; }
-.frigo-user-table-wrap { width: 100%; overflow-x: auto; }
+.frigo-user-table-wrap { width: 100%; max-height: min(65vh, 680px); overflow: auto; overscroll-behavior: contain; }
 .frigo-user-table { width: 100%; border-collapse: collapse; text-align: left; }
+.frigo-user-table thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
 .frigo-user-table th { padding: 16px 20px; border-bottom: 1px solid #edf0f5; color: #727d96; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .frigo-user-table th:last-child { text-align: right; }
 .frigo-user-table td { padding: 15px 20px; border-bottom: 1px solid #f0f2f6; color: #202b49; font-size: 14px; vertical-align: middle; }
@@ -995,8 +1027,9 @@
 .frigo-products-create-button svg { width: 15px; height: 15px; }
 .frigo-products-layout { display: grid; grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); align-items: start; gap: 18px; }
 .frigo-products-categories, .frigo-products-table-panel { border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; box-shadow: 0 3px 14px rgb(24 33 61 / 3%); }
-.frigo-products-categories { display: flex; flex-direction: column; padding: 18px 16px 16px; }
+.frigo-products-categories { display: flex; min-height: 0; max-height: min(65vh, 680px); flex-direction: column; padding: 18px 16px 16px; }
 .frigo-products-categories h2 { margin: 0 4px 12px; color: #182552; font-size: 16px; }
+.frigo-products-category-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .frigo-product-category-filter { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px; color: #18213d; background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .frigo-product-category-filter:hover, .frigo-product-category-filter.is-selected { color: #111c68; background: #e7eaff; }
 .frigo-product-category-filter.is-selected { font-weight: 700; }
@@ -1006,7 +1039,7 @@
 .frigo-products-edit-categories:hover { background: #f5f6ff; }
 .frigo-products-edit-categories svg { width: 14px; height: 14px; }
 .frigo-products-table-panel { min-width: 0; overflow: hidden; }
-.frigo-products-table-scroll { width: 100%; overflow-x: auto; padding: 12px 20px; }
+.frigo-products-table-scroll { width: 100%; max-height: min(75vh, 800px); overflow-x: auto; overflow-y: auto; padding: 12px 20px; overscroll-behavior: contain; }
 .frigo-products-table { width: 100%; border-collapse: collapse; text-align: left; }
 .frigo-products-table th { height: 54px; padding: 16px 12px; border-bottom: 1px solid #edf0f5; color: #727d96; font-size: 13px; font-weight: 600; }
 .frigo-products-table td { height: 72px; padding: 14px 12px; border-top: 1px solid #f0f2f6; color: #202b49; font-size: 14px; white-space: nowrap; }

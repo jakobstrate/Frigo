@@ -272,14 +272,17 @@ export default function AdminReview({
                         : selectedDepartments[request.id] === null
                           ? 'all'
                           : String(selectedDepartments[request.id])}
-                      onChange={(event) => setSelectedDepartments((current) => ({
-                        ...current,
-                        [request.id]: event.currentTarget.value === ''
-                          ? undefined
-                          : event.currentTarget.value === 'all'
-                            ? null
-                            : Number(event.currentTarget.value),
-                      }))}
+                      onChange={(event) => {
+                        const departmentValue = event.currentTarget.value;
+                        setSelectedDepartments((current) => ({
+                          ...current,
+                          [request.id]: departmentValue === ''
+                            ? undefined
+                            : departmentValue === 'all'
+                              ? null
+                              : Number(departmentValue),
+                        }));
+                      }}
                       disabled={selectedCompanyId === null}
                     >
                       <option value="">Vælg afdeling</option>

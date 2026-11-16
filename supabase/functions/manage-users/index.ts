@@ -233,7 +233,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: target, error: targetError } = await supabaseAdmin
         .from('profiles')
-        .select('id, status, company_id')
+        .select('id, status, invitation_completed, company_id')
         .eq('id', userId)
         .maybeSingle();
       if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
@@ -262,7 +262,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: restoredProfile, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .update({ status: 'active', deleted_at: null })
+        .update({ status: target.invitation_completed ? 'active' : 'inactive', deleted_at: null })
         .eq('id', userId)
         .eq('status', 'deleted')
         .select('id')
@@ -278,7 +278,10 @@ Deno.serve(async (request: Request) => {
         });
       }
 
-      return jsonResponse(200, { userId, status: 'active' });
+      return jsonResponse(200, {
+        userId,
+        status: target.invitation_completed ? 'active' : 'inactive',
+      });
     }
 
     if (body.action === 'create') {
@@ -304,10 +307,6 @@ Deno.serve(async (request: Request) => {
       }
       await validateCompanyAndDepartment(assignedCompanyId, departmentId);
       if (assignedCompanyId !== null) await verifyAvatarPath(avatarPath, assignedCompanyId);
-      const hadCompanyAdmin = requestedRole === 'company_admin' && assignedCompanyId !== null
-        ? await hasOtherActiveCompanyAdmins(assignedCompanyId)
-        : true;
-
       const requestOrigin = request.headers.get('origin');
       const inviteRedirectUrl = Deno.env.get('INVITE_REDIRECT_URL')
         ?? (requestOrigin ? new URL('/invite', requestOrigin).toString() : undefined);
@@ -332,7 +331,8 @@ Deno.serve(async (request: Request) => {
         display_name: name,
         email,
         role: requestedRole,
-        status: 'active',
+        status: 'inactive',
+        invitation_completed: false,
         company_id: assignedCompanyId,
         department_id: departmentId,
         avatar_path: avatarPath,
@@ -343,9 +343,6 @@ Deno.serve(async (request: Request) => {
         return jsonResponse(400, { error: `Could not create the user profile: ${profileError.message}.${cleanupMessage}` });
       }
 
-      if (requestedRole === 'company_admin' && assignedCompanyId !== null) {
-        if (!hadCompanyAdmin) await assignPendingRequests(assignedCompanyId, inviteData.user.id, email);
-      }
       return jsonResponse(200, { userId: inviteData.user.id, email });
     }
 
@@ -358,7 +355,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: target, error: targetError } = await supabaseAdmin
         .from('profiles')
-        .select('id, display_name, email, role, status, company_id, department_id')
+        .select('id, display_name, email, role, status, invitation_completed, company_id, department_id')
         .eq('id', userId)
         .maybeSingle();
       if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
@@ -414,6 +411,9 @@ Deno.serve(async (request: Request) => {
       }
       if (requestedStatus === 'active' && ['pending', 'rejected'].includes(target.status)) {
         return jsonResponse(400, { error: 'Pending or rejected users must be approved through the requests page.' });
+      }
+      if (!target.invitation_completed && requestedStatus === 'active') {
+        return jsonResponse(400, { error: 'Users must create their password through the invitation before activation.' });
       }
       if (body.departmentId !== undefined && body.departmentId !== null && departmentId === null) {
         return jsonResponse(400, { error: 'Choose a valid department.' });
