@@ -1,5 +1,4 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
 
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 import { useLogin } from '@/frontend/src/hooks/use-login';
@@ -8,7 +7,6 @@ export default function WebLoginPage() {
   const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin({
     allowEmployeeAccess: false,
   });
-  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   return (
     <main className="frigo-web frigo-login-page">
@@ -51,20 +49,11 @@ export default function WebLoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            <Link className="frigo-login-forgot" href="/forgot-password">
+              Glemt adgangskode?
+            </Link>
             {error && <p className="frigo-web-error" role="alert">{error}</p>}
             {notice && <p className="frigo-web-notice" role="status">{notice}</p>}
-            <button
-              className="frigo-login-forgot"
-              type="button"
-              aria-expanded={showPasswordHelp}
-              onClick={() => setShowPasswordHelp((shown) => !shown)}>
-              Glemt adgangskode?
-            </button>
-            {showPasswordHelp && (
-              <p className="frigo-login-help" role="status">
-                Kontakt din virksomhedsadministrator for at nulstille adgangskoden.
-              </p>
-            )}
             <button type="submit" disabled={isLoading || !email.trim() || !password}>
               {isLoading ? 'Logger ind...' : 'Log ind'}
             </button>

@@ -1,6 +1,6 @@
 import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet } from 'react-native';
 
 import { supabase } from '@/backend/src/supabase';
 import { ProductCatalog } from '@/frontend/src/shared/screens/product-catalog';
@@ -45,5 +45,5 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  accessLoader: { flex: 1, color: '#1028D8' },
+  accessLoader: { flex: 1, color: Platform.OS === 'web' ? '#031BD1' : '#1028D8' },
 });
