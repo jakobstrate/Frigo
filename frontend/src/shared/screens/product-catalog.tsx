@@ -167,6 +167,7 @@ export function ProductCatalog() {
   const [catalogError, setCatalogError] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartNotice, setCartNotice] = useState('');
+  const [cartRegistrationSucceeded, setCartRegistrationSucceeded] = useState(false);
   const [registeredItemCount, setRegisteredItemCount] = useState(0);
   const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -569,6 +570,7 @@ export function ProductCatalog() {
   useEffect(() => {
     const activeProductIds = new Set(products.map((product) => String(product.id)));
     if (!Object.keys(cart).some((productId) => !activeProductIds.has(productId))) return;
+    setCartRegistrationSucceeded(false);
     setCartNotice('Produkter, der ikke længere er aktive, er fjernet fra kurven.');
     setCart((current) => Object.fromEntries(
       Object.entries(current).filter(([productId]) => activeProductIds.has(productId)),
@@ -656,6 +658,7 @@ export function ProductCatalog() {
 
   function updateCart(productId: number, change: number) {
     setCartNotice('');
+    setCartRegistrationSucceeded(false);
     setCatalogError('');
     cartSwipeTranslation.setValue(0);
     setCart((current) => {
@@ -679,6 +682,7 @@ export function ProductCatalog() {
     setShowCart(false);
     setCart({});
     setCartNotice('');
+    setCartRegistrationSucceeded(false);
     setShowHistoryDetails(false);
     setActiveTab(openHistory ? 'history' : 'products');
     if (!openHistory) {
@@ -697,6 +701,7 @@ export function ProductCatalog() {
 
     setIsRegistering(true);
     setCartNotice('');
+    setCartRegistrationSucceeded(false);
     const itemCount = cartCount;
     const rows = cartItems.map((product) => ({
       purchaser_id: employeeProfile.id,
@@ -721,6 +726,7 @@ export function ProductCatalog() {
         setRegisteredItemCount(itemCount);
         setShowRegistrationSuccess(true);
       }
+      setCartRegistrationSucceeded(true);
       const { data: history, error: historyError } = await supabase
         .from('purchases')
         .select('id, product_name, amount, unit_price, total_price, created_at')
@@ -729,6 +735,7 @@ export function ProductCatalog() {
         .limit(30);
       if (!historyError) setPurchaseHistory(history ?? []);
     } catch (purchaseError) {
+      setCartRegistrationSucceeded(false);
       setCartNotice(purchaseError instanceof Error ? purchaseError.message : 'Registreringen kunne ikke gennemføres. Prøv igen.');
     } finally {
       setIsRegistering(false);
@@ -906,8 +913,10 @@ export function ProductCatalog() {
 
           {cartItems.length === 0 ? (
             <View style={styles.cartEmptyState}>
-              {cartNotice ? <Check color={colors.green} size={40} strokeWidth={2.5} /> : <ShoppingBag color={colors.blue} size={38} strokeWidth={1.8} />}
-              <Text style={styles.cartEmptyTitle}>{cartNotice ? 'Registrering gennemført' : 'Kurven er tom'}</Text>
+              {cartRegistrationSucceeded
+                ? <Check color={colors.green} size={40} strokeWidth={2.5} />
+                : <ShoppingBag color={colors.blue} size={38} strokeWidth={1.8} />}
+              <Text style={styles.cartEmptyTitle}>{cartRegistrationSucceeded ? 'Registrering gennemført' : 'Kurven er tom'}</Text>
               <Text style={styles.emptyText}>{cartNotice || 'Vælg et produkt for at lægge det i kurven.'}</Text>
               <Pressable accessibilityRole="button" onPress={() => setShowCart(false)} style={styles.cartContinueButton}>
                 <Text style={styles.cartContinueText}>Se produkter</Text>

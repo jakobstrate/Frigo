@@ -25,7 +25,7 @@ supabase functions deploy update-company
 supabase functions deploy manage-users
 ```
 
-For an existing project, apply the updated `supabase/auth_flow.sql` to add account-deletion request support, allow purchases for employees assigned to "Hele virksomheden", reject purchases of products deactivated while a cart is open, and enable Realtime updates for the employee catalog, then redeploy `manage-users`.
+For an existing project, apply the updated `supabase/auth_flow.sql` to add account-deletion request support, allow purchases for employees assigned to "Hele virksomheden", reject purchases of products deactivated while a cart is open, allow department product selections to change without being blocked by purchase history, and enable Realtime updates for the employee catalog, then redeploy `manage-users`.
 
 The employee app refreshes products and categories when relevant database changes arrive, when it returns to the foreground, and every 5 seconds while open. Changes to an employee's department also refresh their profile and product access. Realtime publication setup is included in `schema.sql` and `auth_flow.sql`; apply the updated SQL to your Supabase project for immediate change notifications. The periodic refresh also handles changes hidden by employee row-level security.
 

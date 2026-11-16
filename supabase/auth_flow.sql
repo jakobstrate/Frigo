@@ -628,6 +628,18 @@ using (
 alter table public.purchases
   alter column department_id drop not null;
 
+alter table public.purchases
+  drop constraint if exists purchases_department_id_product_id_company_id_fkey;
+
+alter table public.purchases
+  drop constraint if exists purchases_department_id_company_id_fkey;
+
+-- Historical purchases retain their department, but must not block later catalog changes.
+alter table public.purchases
+  add constraint purchases_department_id_company_id_fkey
+  foreign key (department_id, company_id)
+  references public.departments(id, company_id) on delete restrict;
+
 do $$
 begin
   if not exists (
@@ -677,6 +689,19 @@ begin
 
   if not found or product_is_active is not true then
     raise exception 'Produktet er ikke længere aktivt. Opdater produktlisten, og prøv igen.';
+  end if;
+
+  if new.department_id is not null then
+    perform 1
+    from public.department_products dp
+    where dp.department_id = new.department_id
+      and dp.product_id = new.product_id
+      and dp.company_id = new.company_id
+    for share;
+
+    if not found then
+      raise exception 'Produktet er ikke længere tilgængeligt for din afdeling.';
+    end if;
   end if;
 
   return new;

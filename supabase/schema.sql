@@ -186,8 +186,8 @@ create table public.purchases (
   unit_price numeric(10, 2) not null check (unit_price >= 0),
   total_price numeric(12, 2) generated always as (amount * unit_price) stored,
   created_at timestamptz not null default now(),
-  foreign key (department_id, product_id, company_id)
-    references public.department_products(department_id, product_id, company_id) on delete restrict
+  foreign key (department_id, company_id)
+    references public.departments(id, company_id) on delete restrict
 );
 
 create or replace function public.prevent_inactive_product_purchase()
@@ -207,6 +207,19 @@ begin
 
   if not found or product_is_active is not true then
     raise exception 'Produktet er ikke længere aktivt. Opdater produktlisten, og prøv igen.';
+  end if;
+
+  if new.department_id is not null then
+    perform 1
+    from public.department_products dp
+    where dp.department_id = new.department_id
+      and dp.product_id = new.product_id
+      and dp.company_id = new.company_id
+    for share;
+
+    if not found then
+      raise exception 'Produktet er ikke længere tilgængeligt for din afdeling.';
+    end if;
   end if;
 
   return new;
