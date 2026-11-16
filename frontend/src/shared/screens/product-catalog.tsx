@@ -29,6 +29,7 @@ import { ActivityIndicator, Animated, Modal, PanResponder, Platform, Pressable, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
+import { biometricCredentialsKey, biometricCredentialsOptions, biometricCredentialsReadyKey, biometricSetupKey } from '@/frontend/src/constants/biometrics';
 
 const colors = {
   background: '#EDF2F6',
@@ -78,8 +79,6 @@ const categoryWidths: Record<string, number> = {
 };
 
 const productColors = ['#E1E9FF', '#FCE4E1', '#E2F3E5', '#FFF0D7', '#DFF1F7', '#EFE6F8'];
-
-const biometricSetupKey = 'frigo-biometric-setup';
 
 function getPurchasePeriodStart(date: Date) {
   return date.getDate() >= 21
@@ -513,8 +512,14 @@ export function ProductCatalog() {
   async function toggleBiometrics(enabled: boolean) {
     setBiometricNotice('');
     if (!enabled) {
-      await SecureStore.setItemAsync(biometricSetupKey, 'skipped');
-      setBiometricEnabled(false);
+      try {
+        await SecureStore.deleteItemAsync(biometricCredentialsKey, biometricCredentialsOptions);
+        await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
+        await SecureStore.setItemAsync(biometricSetupKey, 'skipped');
+        setBiometricEnabled(false);
+      } catch {
+        setBiometricNotice('Biometrisk login kunne ikke deaktiveres. Prøv igen.');
+      }
       return;
     }
 
@@ -528,8 +533,10 @@ export function ProductCatalog() {
       cancelLabel: 'Annuller',
     });
     if (result.success) {
+      await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
       await SecureStore.setItemAsync(biometricSetupKey, 'enabled');
       setBiometricEnabled(true);
+      setBiometricNotice('Log ind med din adgangskode én gang for at aktivere Face ID på denne telefon.');
     } else {
       setBiometricNotice('Biometrisk login blev ikke aktiveret. Prøv igen.');
     }

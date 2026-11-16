@@ -3,7 +3,8 @@ import { useState } from 'react';
 
 import { supabase } from '@/backend/src/supabase';
 
-type LoginSuccessHandler = (destination: Href) => void | Promise<void>;
+export type LoginCredentials = { email: string; password: string };
+type LoginSuccessHandler = (destination: Href, credentials: LoginCredentials) => void | Promise<void>;
 
 type LoginConfiguration = { allowEmployeeAccess?: boolean } | LoginSuccessHandler;
 
@@ -18,16 +19,16 @@ export function useLogin(loginConfiguration?: LoginConfiguration) {
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleLogin() {
-    if (isLoading || !email.trim() || !password) return;
+  async function signInWithCredentials(loginEmail: string, loginPassword: string) {
+    if (isLoading || !loginEmail.trim() || !loginPassword) return;
 
     setError('');
     setNotice('');
     setIsLoading(true);
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+        email: loginEmail.trim(),
+        password: loginPassword,
       });
 
       if (signInError) {
@@ -79,7 +80,7 @@ export function useLogin(loginConfiguration?: LoginConfiguration) {
         : '/explore' as Href;
 
       if (onLoginSuccess) {
-        await onLoginSuccess(destination);
+        await onLoginSuccess(destination, { email: loginEmail.trim(), password: loginPassword });
       } else {
         router.replace(destination);
       }
@@ -90,5 +91,13 @@ export function useLogin(loginConfiguration?: LoginConfiguration) {
     }
   }
 
-  return { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin };
+  async function handleLogin() {
+    await signInWithCredentials(email, password);
+  }
+
+  async function handleSavedCredentialsLogin(credentials: LoginCredentials) {
+    await signInWithCredentials(credentials.email, credentials.password);
+  }
+
+  return { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin, handleSavedCredentialsLogin };
 }
