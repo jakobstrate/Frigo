@@ -7,6 +7,7 @@
   --frigo-color-ink: #1B2140;
   --frigo-color-gray: #5B6475;
   --frigo-color-frost: #EEF2F5;
+  --frigo-color-white: #FFFFFF;
   --frigo-color-green: #1E7A46;
   --frigo-color-red: #B70909;
 }
@@ -64,7 +65,7 @@
   width: min(100%, 360px);
   padding: 34px 32px 30px;
   border-radius: 13px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 12px 40px rgb(27 33 64 / 5%);
 }
 .frigo-login-card h2 { margin: 0 0 5px; color: var(--frigo-color-ink); font-size: 21px; font-weight: 700; }
@@ -77,7 +78,7 @@
   padding: 0 11px;
   border: 1px solid var(--login-line);
   border-radius: 8px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   color: var(--login-ink);
   font: inherit;
   font-size: 12px;
@@ -164,7 +165,7 @@
   gap: 20px;
   padding: 24px 6%;
   border-bottom: 1px solid var(--frigo-line);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
 }
 .frigo-web-link { color: var(--frigo-green); font-size: 14px; font-weight: 600; }
 .frigo-web-main { display: grid; place-items: center; padding: 72px 24px; }
@@ -180,7 +181,7 @@
   padding: 0 15px;
   border: 1px solid var(--frigo-line);
   border-radius: 8px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   color: var(--frigo-ink);
   font: inherit;
   font-size: 16px;
@@ -324,7 +325,7 @@
 .frigo-admin-summary-card, .frigo-admin-panel {
   border: 1px solid var(--admin-line);
   border-radius: 12px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 3px 14px rgb(27 33 64 / 3%);
 }
 .frigo-admin-summary-card { display: flex; min-height: 134px; flex-direction: column; justify-content: center; gap: 8px; padding: 20px; }
@@ -343,13 +344,13 @@
   padding: 16px;
   border: 1px solid var(--admin-line);
   border-radius: 12px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 3px 14px rgb(27 33 64 / 3%);
 }
 .frigo-admin-overview-card > span { color: var(--frigo-color-gray); font-size: 14px; font-weight: 600; }
 .frigo-admin-overview-card strong { overflow: hidden; color: var(--frigo-color-night); font-size: 24px; text-overflow: ellipsis; white-space: nowrap; }
 .frigo-admin-overview-card small { overflow: hidden; color: var(--admin-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.frigo-admin-overview-table-panel { overflow: hidden; padding: 16px; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-frost); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
+.frigo-admin-overview-table-panel { overflow: hidden; padding: 16px; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-white); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
 .frigo-admin-overview-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .frigo-admin-overview-table-heading h2 { margin: 0; color: var(--frigo-color-night); font-size: 18px; }
 .frigo-admin-overview-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
@@ -361,7 +362,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 16px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -370,8 +371,8 @@
 .frigo-admin-overview-control-group button:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-admin-overview-table-scroll { max-height: min(65vh, 680px); overflow: auto; overscroll-behavior: contain; }
 .frigo-admin-overview-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
-.frigo-admin-overview-table thead th { position: sticky; top: 0; z-index: 1; background: var(--frigo-color-frost); }
-.frigo-admin-overview-table th, .frigo-admin-overview-table td { padding: 13px 10px; border-bottom: 1px solid var(--frigo-color-frost); color: var(--frigo-color-ink); font-size: 13px; }
+.frigo-admin-overview-table thead th { position: sticky; top: 0; z-index: 1; background: var(--frigo-color-white); }
+.frigo-admin-overview-table th, .frigo-admin-overview-table td { padding: 13px 10px; border-bottom: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-ink); font-size: 13px; }
 .frigo-admin-overview-table thead th { color: var(--frigo-color-gray); font-weight: 500; }
 .frigo-admin-overview-table tbody th { color: var(--frigo-color-night); font-weight: 650; }
 .frigo-admin-overview-table tbody tr:last-child th, .frigo-admin-overview-table tbody tr:last-child td { border-bottom: 0; }
@@ -394,7 +395,7 @@
   padding: 14px;
   border: 1px solid var(--admin-line);
   border-radius: 12px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 3px 14px rgb(27 33 64 / 3%);
 }
 .frigo-admin-registration-filters.is-company-admin {
@@ -411,7 +412,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 8px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 14px;
 }
@@ -428,7 +429,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 8px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 14px;
   text-align: left;
@@ -448,7 +449,7 @@
   padding: 12px;
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 14px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 10px 32px rgb(27 33 64 / 15%);
 }
 .frigo-admin-period-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -459,7 +460,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 16px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -478,7 +479,7 @@
   border: 0;
   border-radius: 50%;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 20px;
   line-height: 1;
@@ -513,7 +514,7 @@
   font-weight: 700;
 }
 .frigo-admin-registration-filters .frigo-admin-period-calendar-grid .frigo-admin-period-day.is-today:not(.is-selected) { box-shadow: inset 0 0 0 1px var(--frigo-color-primary); }
-.frigo-admin-period-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--frigo-color-frost); }
+.frigo-admin-period-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--frigo-color-light-blue); }
 .frigo-admin-period-actions button {
   min-height: 32px;
   margin: 0;
@@ -521,7 +522,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 18px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -552,7 +553,7 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.frigo-admin-registration-view-toggle button.is-selected { color: var(--frigo-color-ink); background: var(--frigo-color-frost); box-shadow: 0 1px 3px rgb(27 33 64 / 10%); }
+.frigo-admin-registration-view-toggle button.is-selected { color: var(--frigo-color-ink); background: var(--frigo-color-white); box-shadow: 0 1px 3px rgb(27 33 64 / 10%); }
 .frigo-admin-registration-export {
   display: inline-flex;
   min-height: 36px;
@@ -584,7 +585,7 @@
   padding: 10px;
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 14px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 8px 26px rgb(27 33 64 / 12%);
 }
 .frigo-admin-registration-export-menu button {
@@ -597,7 +598,7 @@
   border: 0;
   border-radius: 9px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -621,15 +622,15 @@
   padding: 12px 16px;
   border: 1px solid var(--admin-line);
   border-radius: 12px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 3px 14px rgb(27 33 64 / 3%);
 }
 .frigo-admin-registration-summary article span { overflow: hidden; color: var(--frigo-color-gray); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .frigo-admin-registration-summary article strong { overflow: hidden; color: var(--frigo-color-night); font-size: 21px; text-overflow: ellipsis; white-space: nowrap; }
-.frigo-admin-registration-table-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-frost); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
+.frigo-admin-registration-table-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-white); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
 .frigo-admin-registration-table-scroll { max-height: min(65vh, 680px); overflow: auto; padding: 4px 14px; overscroll-behavior: contain; }
 .frigo-admin-registration-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
-.frigo-admin-registration-table th, .frigo-admin-registration-table td { padding: 13px 10px; border-bottom: 1px solid var(--frigo-color-frost); color: var(--frigo-color-ink); font-size: 13px; }
+.frigo-admin-registration-table th, .frigo-admin-registration-table td { padding: 13px 10px; border-bottom: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-ink); font-size: 13px; }
 .frigo-admin-registration-table thead th { color: var(--frigo-color-gray); font-weight: 500; }
 .frigo-admin-registration-table tbody th { color: var(--frigo-color-night); font-weight: 650; }
 .frigo-admin-registration-table .is-numeric { text-align: right; }
@@ -658,7 +659,7 @@
 }
 .frigo-admin-primary-button { color: var(--frigo-color-frost); background: var(--frigo-color-primary); }
 .frigo-admin-primary-button:hover { background: var(--frigo-color-marine); }
-.frigo-admin-secondary-button { border-color: var(--frigo-color-light-blue); color: var(--frigo-color-ink); background: var(--frigo-color-frost); }
+.frigo-admin-secondary-button { border-color: var(--frigo-color-light-blue); color: var(--frigo-color-ink); background: var(--frigo-color-white); }
 .frigo-admin-primary-button:focus-visible, .frigo-admin-secondary-button:focus-visible,
 .frigo-admin-modal-close:focus-visible, .frigo-admin-department-entry button:focus-visible,
 .frigo-admin-chip-remove:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
@@ -667,12 +668,12 @@
 .frigo-requests { display: flex; flex-direction: column; gap: 20px; }
 .frigo-requests-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .frigo-requests-intro p { margin: 0; color: var(--frigo-color-gray); font-size: 14px; }
-.frigo-request-panel { overflow: hidden; border-radius: 17px; background: var(--frigo-color-frost); }
-.frigo-request-panel-heading { display: flex; align-items: center; gap: 10px; padding: 18px 22px 14px; border-bottom: 1px solid var(--frigo-color-frost); }
+.frigo-request-panel { overflow: hidden; border-radius: 17px; background: var(--frigo-color-white); }
+.frigo-request-panel-heading { display: flex; align-items: center; gap: 10px; padding: 18px 22px 14px; border-bottom: 1px solid var(--frigo-color-light-blue); }
 .frigo-request-panel-heading h2 { margin: 0; color: var(--frigo-color-ink); font-size: 18px; }
 .frigo-request-panel-heading > span { display: grid; min-width: 24px; height: 24px; place-items: center; padding: 0 7px; border-radius: 12px; color: var(--frigo-color-ink); background: var(--frigo-color-light-blue); font-size: 12px; font-weight: 700; }
 .frigo-request-list { padding: 0 16px; }
-.frigo-request-row { display: flex; min-height: 88px; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--frigo-color-frost); }
+.frigo-request-row { display: flex; min-height: 88px; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--frigo-color-light-blue); }
 .frigo-request-row:last-child { border-bottom: 0; }
 .frigo-request-avatar { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: var(--frigo-color-primary); background: var(--frigo-color-light-blue); font-size: 11px; font-weight: 700; }
 .frigo-request-avatar.is-deletion { color: var(--frigo-color-red); background: var(--frigo-color-light-blue); }
@@ -681,7 +682,7 @@
 .frigo-request-person > span, .frigo-request-person small { color: var(--frigo-color-gray); font-size: 13px; }
 .frigo-request-person small { white-space: nowrap; }
 .frigo-request-department-field { display: flex; width: 152px; flex: 0 0 auto; flex-direction: column; gap: 4px; color: var(--frigo-color-gray); font-size: 12px; }
-.frigo-request-department-field select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--frigo-color-light-blue); border-radius: 10px; color: var(--frigo-color-ink); background: var(--frigo-color-frost); font: inherit; font-size: 13px; }
+.frigo-request-department-field select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--frigo-color-light-blue); border-radius: 10px; color: var(--frigo-color-ink); background: var(--frigo-color-white); font: inherit; font-size: 13px; }
 .frigo-request-department-field select:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-request-actions { display: flex; flex: 0 0 auto; gap: 7px; }
 .frigo-request-actions .frigo-admin-primary-button,
@@ -689,7 +690,7 @@
 .frigo-request-actions .frigo-admin-danger-button { min-height: 40px; padding: 0 14px; font-size: 13px; }
 .frigo-request-empty { margin: 0; padding: 22px; color: var(--frigo-color-gray); font-size: 14px; }
 .frigo-admin-company-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-.frigo-admin-company-card { min-width: 0; padding: 20px; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-frost); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
+.frigo-admin-company-card { min-width: 0; padding: 20px; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-white); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
 .frigo-admin-company-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .frigo-admin-company-card h3 { overflow-wrap: anywhere; margin: 0; color: var(--frigo-color-night); font-size: 16px; }
 .frigo-admin-status { flex: 0 0 auto; padding: 5px 9px; border-radius: 20px; color: var(--frigo-color-green); background: var(--frigo-color-light-blue); font-size: 10px; font-weight: 700; }
@@ -740,21 +741,21 @@
 .frigo-admin-danger-button:disabled { background: var(--frigo-color-gray); cursor: wait; }
 .frigo-admin-company-message { padding: 22px; border: 1px dashed var(--frigo-color-light-blue); border-radius: 9px; color: var(--admin-muted); font-size: 13px; text-align: center; }
 .frigo-admin-modal-backdrop { position: fixed; inset: 0; z-index: 5; display: grid; overflow-y: auto; place-items: center; padding: 24px; background: rgb(16 27 111 / 52%); }
-.frigo-admin-modal { width: min(100%, 520px); max-height: calc(100vh - 48px); overflow-y: auto; padding: 24px; border-radius: 14px; background: var(--frigo-color-frost); box-shadow: 0 18px 60px rgb(27 33 64 / 24%); }
+.frigo-admin-modal { width: min(100%, 520px); max-height: calc(100vh - 48px); overflow-y: auto; padding: 24px; border-radius: 14px; background: var(--frigo-color-white); box-shadow: 0 18px 60px rgb(27 33 64 / 24%); }
 .frigo-admin-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .frigo-admin-modal-header h2 { margin: 0; color: var(--frigo-color-night); font-size: 19px; }
-.frigo-admin-modal-close { width: 34px; min-height: 34px; padding: 0; border-radius: 50%; color: var(--frigo-color-ink); background: var(--frigo-color-frost); font-size: 18px; }
+.frigo-admin-modal-close { width: 34px; min-height: 34px; padding: 0; border-radius: 50%; color: var(--frigo-color-ink); background: var(--frigo-color-white); font-size: 18px; }
 .frigo-admin-modal form { display: flex; flex-direction: column; gap: 8px; }
 .frigo-admin-modal label { margin-top: 4px; color: var(--frigo-color-ink); font-size: 11px; font-weight: 700; }
 .frigo-admin-form-section-label { margin: 6px 0 -2px; color: var(--frigo-color-ink); font-size: 11px; font-weight: 700; }
-.frigo-admin-admin-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 8px 8px; border: 1px solid var(--frigo-color-frost); border-radius: 9px; }
+.frigo-admin-admin-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 8px 8px; border: 1px solid var(--frigo-color-light-blue); border-radius: 9px; }
 .frigo-admin-admin-fields > div { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
 .frigo-admin-admin-fields label { margin-top: 4px; }
-.frigo-admin-modal input, .frigo-admin-modal select { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid var(--frigo-color-light-blue); border-radius: 8px; color: var(--frigo-color-ink); background: var(--frigo-color-frost); font: inherit; font-size: 12px; }
+.frigo-admin-modal input, .frigo-admin-modal select { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid var(--frigo-color-light-blue); border-radius: 8px; color: var(--frigo-color-ink); background: var(--frigo-color-white); font: inherit; font-size: 12px; }
 .frigo-admin-modal input:focus-visible, .frigo-admin-modal select:focus-visible, .frigo-admin-modal button:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-admin-department-entry { display: flex; gap: 8px; }
 .frigo-admin-department-entry input { min-width: 0; }
-.frigo-admin-department-entry button { flex: 0 0 auto; min-height: 42px; margin: 0; padding: 0 13px; border: 1px solid var(--frigo-color-light-blue); border-radius: 8px; color: var(--frigo-color-ink); background: var(--frigo-color-frost); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.frigo-admin-department-entry button { flex: 0 0 auto; min-height: 42px; margin: 0; padding: 0 13px; border: 1px solid var(--frigo-color-light-blue); border-radius: 8px; color: var(--frigo-color-ink); background: var(--frigo-color-white); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 .frigo-admin-department-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px; }
 .frigo-admin-department-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px 5px 10px; border-radius: 14px; color: var(--frigo-color-marine); background: var(--frigo-color-light-blue); font-size: 10px; }
 .frigo-admin-chip-remove { width: 17px; min-height: 17px; padding: 0; border-radius: 50%; color: var(--frigo-color-marine); background: var(--frigo-color-light-blue); font-size: 13px; }
@@ -820,7 +821,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 8px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 12px;
 }
@@ -834,7 +835,7 @@
   padding: 16px;
   border: 1px solid var(--admin-line);
   border-radius: 12px;
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   box-shadow: 0 3px 14px rgb(27 33 64 / 3%);
 }
 .frigo-department-create > label { margin: 0; color: var(--frigo-color-night); font-size: 11px; font-weight: 700; }
@@ -847,7 +848,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 9px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 12px;
 }
@@ -856,7 +857,7 @@
 .frigo-department-create-fields .frigo-admin-primary-button { min-height: 42px; margin: 0; padding: 0 17px; }
 .frigo-department-create-fields input:disabled { background: var(--frigo-color-frost); }
 .frigo-department-section-header { margin: 22px 0 14px; }
-.frigo-department-list { max-height: min(65vh, 680px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-frost); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
+.frigo-department-list { max-height: min(65vh, 680px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--admin-line); border-radius: 12px; background: var(--frigo-color-white); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
 .frigo-department-card {
   display: flex;
   min-height: 100px;
@@ -865,7 +866,7 @@
   gap: 24px;
   padding: 20px 24px;
 }
-.frigo-department-card + .frigo-department-card { border-top: 1px solid var(--frigo-color-frost); }
+.frigo-department-card + .frigo-department-card { border-top: 1px solid var(--frigo-color-light-blue); }
 .frigo-department-card-details { min-width: 170px; }
 .frigo-department-card-details h3 { margin: 0 0 7px; color: var(--frigo-color-night); font-size: 16px; }
 .frigo-department-card-details p { margin: 0; color: var(--admin-muted); font-size: 13px; }
@@ -885,7 +886,7 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.frigo-department-mode button.is-selected { color: var(--frigo-color-night); background: var(--frigo-color-frost); box-shadow: 0 1px 4px rgb(27 33 64 / 10%); }
+.frigo-department-mode button.is-selected { color: var(--frigo-color-night); background: var(--frigo-color-white); box-shadow: 0 1px 4px rgb(27 33 64 / 10%); }
 .frigo-department-mode button:focus-visible, .frigo-department-select-products:focus-visible,
 .frigo-department-icon-button:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-department-mode button:disabled { color: var(--frigo-color-gray); cursor: wait; }
@@ -896,7 +897,7 @@
   border: 1px solid var(--frigo-color-primary);
   border-radius: 18px;
   color: var(--frigo-color-primary);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 10px;
   font-weight: 700;
@@ -912,7 +913,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 50%;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font-size: 15px;
   cursor: pointer;
 }
@@ -921,13 +922,13 @@
 .frigo-department-products-modal { width: min(100%, 470px); }
 .frigo-department-products-modal .frigo-admin-modal-header { margin-bottom: 8px; }
 .frigo-department-products-help { margin: 0 0 12px; color: var(--admin-muted); font-size: 11px; line-height: 1.5; }
-.frigo-department-product-list { max-height: min(52vh, 440px); overflow-y: auto; border-top: 1px solid var(--frigo-color-frost); }
+.frigo-department-product-list { max-height: min(52vh, 440px); overflow-y: auto; border-top: 1px solid var(--frigo-color-light-blue); }
 .frigo-department-product-option {
   display: flex;
   min-height: 40px;
   align-items: center;
   gap: 9px;
-  border-bottom: 1px solid var(--frigo-color-frost);
+  border-bottom: 1px solid var(--frigo-color-light-blue);
   color: var(--frigo-color-ink);
   font-size: 11px;
   cursor: pointer;
@@ -956,22 +957,22 @@
 .frigo-user-section-header h2 { font-size: 25px; }
 .frigo-user-section-header p { margin: 7px 0 0; color: var(--admin-muted); font-size: 15px; }
 .frigo-user-section-header .frigo-admin-primary-button { min-height: 48px; padding: 0 22px; font-size: 14px; }
-.frigo-user-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 14px; background: var(--frigo-color-frost); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
+.frigo-user-panel { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 14px; background: var(--frigo-color-white); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
 .frigo-user-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px; }
-.frigo-user-search { display: flex; width: min(100%, 440px); min-height: 50px; align-items: center; gap: 11px; padding: 0 16px; border: 1px solid var(--frigo-color-light-blue); border-radius: 26px; color: var(--frigo-color-gray); }
+.frigo-user-search { display: flex; width: min(100%, 440px); min-height: 50px; align-items: center; gap: 11px; padding: 0 16px; border: 1px solid var(--frigo-color-light-blue); border-radius: 26px; color: var(--frigo-color-gray); background: var(--frigo-color-white); }
 .frigo-user-search > span { font-size: 22px; line-height: 1; }
 .frigo-user-search input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; outline: 0; color: var(--admin-ink); background: transparent; font: inherit; font-size: 14px; }
 .frigo-user-search input:focus-visible { outline: 0; }
 .frigo-user-filters { display: flex; gap: 8px; }
-.frigo-user-filters button { min-height: 42px; margin: 0; padding: 0 18px; border: 1px solid var(--frigo-color-light-blue); border-radius: 22px; color: var(--frigo-color-gray); background: var(--frigo-color-frost); font: inherit; font-size: 13px; cursor: pointer; }
+.frigo-user-filters button { min-height: 42px; margin: 0; padding: 0 18px; border: 1px solid var(--frigo-color-light-blue); border-radius: 22px; color: var(--frigo-color-gray); background: var(--frigo-color-white); font: inherit; font-size: 13px; cursor: pointer; }
 .frigo-user-filters button.is-selected { border-color: var(--frigo-color-primary); color: var(--frigo-color-frost); background: var(--frigo-color-primary); }
 .frigo-user-filters button:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-user-table-wrap { width: 100%; max-height: min(65vh, 680px); overflow: auto; overscroll-behavior: contain; }
 .frigo-user-table { width: 100%; border-collapse: collapse; text-align: left; }
-.frigo-user-table thead th { position: sticky; top: 0; z-index: 1; background: var(--frigo-color-frost); }
-.frigo-user-table th { padding: 16px 20px; border-bottom: 1px solid var(--frigo-color-frost); color: var(--frigo-color-gray); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.frigo-user-table thead th { position: sticky; top: 0; z-index: 1; background: var(--frigo-color-white); }
+.frigo-user-table th { padding: 16px 20px; border-bottom: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-gray); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .frigo-user-table th:last-child { text-align: right; }
-.frigo-user-table td { padding: 15px 20px; border-bottom: 1px solid var(--frigo-color-frost); color: var(--frigo-color-ink); font-size: 14px; vertical-align: middle; }
+.frigo-user-table td { padding: 15px 20px; border-bottom: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-ink); font-size: 14px; vertical-align: middle; }
 .frigo-user-table tbody tr:last-child td { border-bottom: 0; }
 .frigo-user-identity { display: flex; min-width: 210px; align-items: center; gap: 13px; }
 .frigo-user-identity > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
@@ -991,7 +992,7 @@
 .frigo-user-status.is-inactive, .frigo-user-status.is-rejected, .frigo-user-status.is-deleted { color: var(--frigo-color-gray); background: var(--frigo-color-frost); }
 .frigo-user-status.is-pending { color: var(--frigo-color-orange); background: var(--frigo-color-frost); }
 .frigo-user-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
-.frigo-user-icon-button { display: grid; width: 42px; height: 42px; min-height: 42px; margin: 0; place-items: center; border: 1px solid var(--frigo-color-light-blue); border-radius: 50%; color: var(--frigo-color-ink); background: var(--frigo-color-frost); cursor: pointer; }
+.frigo-user-icon-button { display: grid; width: 42px; height: 42px; min-height: 42px; margin: 0; place-items: center; border: 1px solid var(--frigo-color-light-blue); border-radius: 50%; color: var(--frigo-color-ink); background: var(--frigo-color-white); cursor: pointer; }
 .frigo-user-icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .frigo-user-icon-button.is-danger { border-color: var(--frigo-color-light-blue); color: var(--frigo-color-red); background: var(--frigo-color-light-blue); }
 .frigo-user-icon-button:hover:not(:disabled) { background: var(--frigo-color-light-blue); }
@@ -1009,12 +1010,12 @@
 .frigo-user-avatar-large { width: 68px; height: 68px; border-radius: 16px; }
 .frigo-user-avatar-large .frigo-user-avatar-placeholder { width: 100%; height: 100%; }
 .frigo-user-avatar-large .frigo-user-avatar-placeholder svg { width: 23px; height: 23px; }
-.frigo-user-upload-button { display: inline-flex; min-height: 42px; align-items: center; padding: 0 18px; border: 1px solid var(--frigo-color-light-blue); border-radius: 24px; color: var(--frigo-color-ink) !important; background: var(--frigo-color-frost); font-size: 13px !important; cursor: pointer; }
+.frigo-user-upload-button { display: inline-flex; min-height: 42px; align-items: center; padding: 0 18px; border: 1px solid var(--frigo-color-light-blue); border-radius: 24px; color: var(--frigo-color-ink) !important; background: var(--frigo-color-white); font-size: 13px !important; cursor: pointer; }
 .frigo-user-upload-button input { position: absolute; width: 1px; min-height: 0; height: 1px; overflow: hidden; padding: 0; border: 0; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
 .frigo-user-image-control .frigo-admin-modal-help { margin-top: 6px; }
 .frigo-user-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .frigo-user-form-grid > div { min-width: 0; }
-.frigo-user-role-fieldset { display: flex; flex-direction: column; gap: 12px; margin: 7px 0 3px; padding: 16px; border: 1px solid var(--frigo-color-frost); border-radius: 11px; }
+.frigo-user-role-fieldset { display: flex; flex-direction: column; gap: 12px; margin: 7px 0 3px; padding: 16px; border: 1px solid var(--frigo-color-light-blue); border-radius: 11px; }
 .frigo-user-role-fieldset legend { padding: 0 7px; color: var(--frigo-color-ink); font-size: 14px; font-weight: 700; }
 .frigo-user-radio { display: flex; align-items: center; gap: 9px; color: var(--frigo-color-ink) !important; font-size: 14px !important; font-weight: 400 !important; cursor: pointer; }
 .frigo-user-radio input { width: 19px; min-height: 19px; height: 19px; margin: 0; accent-color: var(--frigo-color-primary); }
@@ -1040,23 +1041,23 @@
 .frigo-products-create-button { min-height: 48px; flex: 0 0 auto; padding: 0 22px; font-size: 14px; }
 .frigo-products-create-button svg { width: 15px; height: 15px; }
 .frigo-products-layout { display: grid; grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); align-items: start; gap: 18px; }
-.frigo-products-categories, .frigo-products-table-panel { border: 1px solid var(--admin-line); border-radius: 14px; background: var(--frigo-color-frost); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
+.frigo-products-categories, .frigo-products-table-panel { border: 1px solid var(--admin-line); border-radius: 14px; background: var(--frigo-color-white); box-shadow: 0 3px 14px rgb(27 33 64 / 3%); }
 .frigo-products-categories { display: flex; min-height: 0; max-height: min(65vh, 680px); flex-direction: column; padding: 18px 16px 16px; }
 .frigo-products-categories h2 { margin: 0 4px 12px; color: var(--frigo-color-night); font-size: 16px; }
 .frigo-products-category-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
-.frigo-product-category-filter { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px; color: var(--frigo-color-ink); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.frigo-product-category-filter { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px; color: var(--frigo-color-ink); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .frigo-product-category-filter:hover, .frigo-product-category-filter.is-selected { color: var(--frigo-color-marine); background: var(--frigo-color-light-blue); }
 .frigo-product-category-filter.is-selected { font-weight: 700; }
 .frigo-product-category-filter small { color: var(--frigo-color-gray); font-size: 12px; }
 .frigo-product-category-filter:focus-visible, .frigo-products-edit-categories:focus-visible, .frigo-product-icon-button:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
-.frigo-products-edit-categories { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; padding: 0 9px; border: 1px solid var(--frigo-color-light-blue); border-radius: 8px; color: var(--frigo-color-primary); background: var(--frigo-color-frost); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.frigo-products-edit-categories { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; padding: 0 9px; border: 1px solid var(--frigo-color-light-blue); border-radius: 8px; color: var(--frigo-color-primary); background: var(--frigo-color-white); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .frigo-products-edit-categories:hover { background: var(--frigo-color-light-blue); }
 .frigo-products-edit-categories svg { width: 14px; height: 14px; }
 .frigo-products-table-panel { min-width: 0; overflow: hidden; }
 .frigo-products-table-scroll { width: 100%; max-height: min(75vh, 800px); overflow-x: auto; overflow-y: auto; padding: 12px 20px; overscroll-behavior: contain; }
 .frigo-products-table { width: 100%; border-collapse: collapse; text-align: left; }
-.frigo-products-table th { height: 54px; padding: 16px 12px; border-bottom: 1px solid var(--frigo-color-frost); color: var(--frigo-color-gray); font-size: 13px; font-weight: 600; }
-.frigo-products-table td { height: 72px; padding: 14px 12px; border-top: 1px solid var(--frigo-color-frost); color: var(--frigo-color-ink); font-size: 14px; white-space: nowrap; }
+.frigo-products-table th { height: 54px; padding: 16px 12px; border-bottom: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-gray); font-size: 13px; font-weight: 600; }
+.frigo-products-table td { height: 72px; padding: 14px 12px; border-top: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-ink); font-size: 14px; white-space: nowrap; }
 .frigo-products-table th:first-child, .frigo-products-table td:first-child { padding-left: 0; }
 .frigo-products-table th:last-child, .frigo-products-table td:last-child { width: 108px; padding-right: 0; }
 .frigo-products-table th { white-space: nowrap; }
@@ -1072,7 +1073,7 @@
 .frigo-product-name small { color: var(--admin-muted); font-size: 12px; }
 .frigo-product-price { color: var(--frigo-color-night) !important; font-weight: 700; }
 .frigo-product-actions { display: inline-flex; align-items: center; gap: 8px; }
-.frigo-product-icon-button { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 1px solid var(--frigo-color-light-blue); border-radius: 50%; color: var(--frigo-color-ink); background: var(--frigo-color-frost); cursor: pointer; }
+.frigo-product-icon-button { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 1px solid var(--frigo-color-light-blue); border-radius: 50%; color: var(--frigo-color-ink); background: var(--frigo-color-white); cursor: pointer; }
 .frigo-product-icon-button:hover:not(:disabled) { background: var(--frigo-color-light-blue); }
 .frigo-product-icon-button.is-danger { border-color: var(--frigo-color-light-blue); color: var(--frigo-color-red); background: var(--frigo-color-light-blue); }
 .frigo-product-icon-button.is-danger:hover:not(:disabled) { background: var(--frigo-color-light-blue); }
@@ -1087,29 +1088,58 @@
 .frigo-product-image-preview { display: grid; width: 100%; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: 12px; color: var(--frigo-color-night); background: var(--frigo-color-light-blue); }
 .frigo-product-image-preview > svg { width: 34px; height: 34px; }
 .frigo-product-image-preview img { width: 100%; height: 100%; object-fit: cover; }
-.frigo-product-upload { position: relative; display: flex; min-height: 35px; align-items: center; justify-content: center; gap: 5px; margin: 0 !important; padding: 0 7px; border: 1px solid var(--frigo-color-light-blue); border-radius: 20px; color: var(--frigo-color-primary) !important; background: var(--frigo-color-frost); font-size: 10px !important; cursor: pointer; }
+.frigo-product-upload { position: relative; display: flex; min-height: 35px; align-items: center; justify-content: center; gap: 5px; margin: 0 !important; padding: 0 7px; border: 1px solid var(--frigo-color-light-blue); border-radius: 20px; color: var(--frigo-color-primary) !important; background: var(--frigo-color-white); font-size: 10px !important; cursor: pointer; }
 .frigo-product-upload svg { width: 14px; height: 14px; }
 .frigo-product-upload input { position: absolute; width: 1px; height: 1px; min-height: 0; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); }
 .frigo-product-required { color: var(--frigo-color-red); font-size: 9px; text-align: center; }
 .frigo-product-name-description { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
 .frigo-product-modal .frigo-product-name-description label, .frigo-product-form-grid > div > label { margin: 0; }
-.frigo-product-modal input:not([type='checkbox']), .frigo-product-modal select, .frigo-product-modal textarea { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid var(--frigo-color-light-blue); border-radius: 9px; color: var(--frigo-color-ink); background: var(--frigo-color-frost); font: inherit; font-size: 11px; }
+.frigo-product-modal input:not([type='checkbox']), .frigo-product-modal select, .frigo-product-modal textarea { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid var(--frigo-color-light-blue); border-radius: 9px; color: var(--frigo-color-ink); background: var(--frigo-color-white); font: inherit; font-size: 11px; }
 .frigo-product-modal textarea { min-height: 64px; padding: 10px 11px; resize: vertical; }
 .frigo-product-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .frigo-product-form-grid > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
-.frigo-product-active-toggle { display: flex; min-height: 48px; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 12px; margin: 0 !important; padding: 8px 12px; border-radius: 10px; background: var(--frigo-color-frost); cursor: pointer; }
+.frigo-product-active-toggle { display: flex; min-height: 60px; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 12px; margin: 0 !important; padding: 8px 12px; border-radius: 10px; background: var(--frigo-color-frost); cursor: pointer; }
 .frigo-product-active-toggle > span { display: flex; flex-direction: column; gap: 3px; }
 .frigo-product-active-toggle strong { color: var(--frigo-color-night); font-size: 11px; }
 .frigo-product-active-toggle small { color: var(--admin-muted); font-size: 9px; font-weight: 400; }
-.frigo-product-active-toggle input { width: 36px; height: 20px; margin: 0; accent-color: var(--frigo-color-primary); }
+.frigo-product-active-toggle input {
+  position: relative;
+  width: 38px;
+  min-width: 38px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  appearance: none;
+  background: var(--frigo-color-gray);
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+.frigo-product-active-toggle input::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--frigo-color-white);
+  content: '';
+  transition: transform .2s ease;
+}
+.frigo-product-active-toggle input:checked { background: var(--frigo-color-primary); }
+.frigo-product-active-toggle input:checked::before { transform: translateX(14px); }
+.frigo-product-active-toggle input:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-category-modal { width: min(100%, 480px); }
 .frigo-category-create { gap: 7px !important; margin-bottom: 10px; }
 .frigo-category-create label { margin: 0 !important; }
 .frigo-category-create > div { display: flex; gap: 7px; }
 .frigo-category-create input { min-width: 0; flex: 1; }
 .frigo-category-create .frigo-admin-primary-button { min-height: 40px; margin: 0; }
-.frigo-category-list { max-height: min(48vh, 360px); overflow-y: auto; margin-bottom: 12px; border-top: 1px solid var(--frigo-color-frost); }
-.frigo-category-row { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--frigo-color-frost); }
+.frigo-category-list { max-height: min(48vh, 360px); overflow-y: auto; margin-bottom: 12px; border-top: 1px solid var(--frigo-color-light-blue); }
+.frigo-category-row { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--frigo-color-light-blue); }
 .frigo-category-row > input { min-width: 0; flex: 1; }
 .frigo-category-row-details { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .frigo-category-row-details strong { overflow: hidden; color: var(--frigo-color-night); font-size: 11px; text-overflow: ellipsis; }
@@ -1153,7 +1183,7 @@
   border: 1px solid var(--frigo-color-light-blue);
   border-radius: 8px;
   color: var(--frigo-color-ink);
-  background: var(--frigo-color-frost);
+  background: var(--frigo-color-white);
   font: inherit;
   font-size: 12px;
 }
