@@ -1045,7 +1045,7 @@
 .frigo-products-categories { display: flex; min-height: 0; max-height: min(65vh, 680px); flex-direction: column; padding: 18px 16px 16px; }
 .frigo-products-categories h2 { margin: 0 4px 12px; color: var(--frigo-color-night); font-size: 16px; }
 .frigo-products-category-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
-.frigo-product-category-filter { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px; color: var(--frigo-color-ink); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.frigo-product-category-filter { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px; color: var(--frigo-color-ink); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .frigo-product-category-filter:hover, .frigo-product-category-filter.is-selected { color: var(--frigo-color-marine); background: var(--frigo-color-light-blue); }
 .frigo-product-category-filter.is-selected { font-weight: 700; }
 .frigo-product-category-filter small { color: var(--frigo-color-gray); font-size: 12px; }
