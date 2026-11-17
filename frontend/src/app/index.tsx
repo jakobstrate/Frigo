@@ -1,14 +1,15 @@
-import { router, type Href } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { router, type Href } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { Fingerprint, ScanFace } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
-import { useLogin } from '@/frontend/src/hooks/use-login';
+import { biometricCredentialsKey, biometricCredentialsOptions, biometricCredentialsReadyKey, biometricSetupKey } from '@/frontend/src/constants/biometrics';
+import { useLogin, type LoginCredentials } from '@/frontend/src/hooks/use-login';
 
 const colors = {
   background: '#1028D8',
@@ -17,19 +18,30 @@ const colors = {
   error: '#8F1D25',
 };
 
-const biometricSetupKey = 'frigo-biometric-setup';
-
 export default function LoginScreen() {
   const [biometricDestination, setBiometricDestination] = useState<Href | null>(null);
   const [biometricName, setBiometricName] = useState('biometrisk login');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricError, setBiometricError] = useState('');
+  const [biometricNotice, setBiometricNotice] = useState('');
+  const [biometricLoginAvailable, setBiometricLoginAvailable] = useState(false);
+  const [isBiometricLoginLoading, setIsBiometricLoginLoading] = useState(false);
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState<LoginCredentials | null>(null);
 
-  async function handleLoginSuccess(destination: Href) {
+  async function handleLoginSuccess(destination: Href, credentials: LoginCredentials) {
     try {
       const setupChoice = await SecureStore.getItemAsync(biometricSetupKey);
-      if (setupChoice) {
+      if (setupChoice === 'enabled') {
+        const credentialsReady = await SecureStore.getItemAsync(biometricCredentialsReadyKey);
+        if (credentialsReady !== 'true') {
+          await SecureStore.setItemAsync(biometricCredentialsKey, JSON.stringify(credentials), biometricCredentialsOptions);
+          await SecureStore.setItemAsync(biometricCredentialsReadyKey, 'true');
+        }
+        router.replace(destination);
+        return;
+      }
+      if (setupChoice === 'skipped') {
         router.replace(destination);
         return;
       }
@@ -52,6 +64,7 @@ export default function LoginScreen() {
       setBiometricName(label);
       setBiometricAvailable(hasHardware && isEnrolled && (supportsFace || supportsFingerprint));
       setBiometricError('');
+      setPendingCredentials(credentials);
       setBiometricDestination(destination);
     } catch {
       router.replace(destination);
@@ -63,9 +76,11 @@ export default function LoginScreen() {
 
     setIsBiometricLoading(true);
     try {
-      await SecureStore.setItemAsync(biometricSetupKey, enabled ? 'enabled' : 'skipped');
+      await SecureStore.setItemAsync(biometricSetupKey, 'skipped');
+      await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
       const destination = biometricDestination;
       setBiometricDestination(null);
+      setPendingCredentials(null);
       router.replace(destination);
     } catch {
       setBiometricError('Vi kunne ikke gemme dit valg. Prøv igen.');
@@ -75,7 +90,7 @@ export default function LoginScreen() {
   }
 
   async function enableBiometrics() {
-    if (!biometricAvailable || isBiometricLoading) return;
+    if (!biometricAvailable || !pendingCredentials || isBiometricLoading) return;
 
     setIsBiometricLoading(true);
     setBiometricError('');
@@ -87,9 +102,12 @@ export default function LoginScreen() {
       });
 
       if (result.success) {
+        await SecureStore.setItemAsync(biometricCredentialsKey, JSON.stringify(pendingCredentials), biometricCredentialsOptions);
+        await SecureStore.setItemAsync(biometricCredentialsReadyKey, 'true');
         await SecureStore.setItemAsync(biometricSetupKey, 'enabled');
         const destination = biometricDestination;
         setBiometricDestination(null);
+        setPendingCredentials(null);
         if (destination) router.replace(destination);
       } else if (result.error !== 'user_cancel' && result.error !== 'system_cancel' && result.error !== 'app_cancel') {
         setBiometricError(`${biometricName} kunne ikke bekræfte dig. Prøv igen, eller vælg “Ikke nu”.`);
@@ -101,7 +119,88 @@ export default function LoginScreen() {
     }
   }
 
-  const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin } = useLogin(handleLoginSuccess);
+  const { email, setEmail, password, setPassword, error, notice, isLoading, handleLogin, handleSavedCredentialsLogin } = useLogin(handleLoginSuccess);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function checkBiometricLogin() {
+      try {
+        const [setupChoice, credentialsReady, hasHardware, isEnrolled, types] = await Promise.all([
+          SecureStore.getItemAsync(biometricSetupKey),
+          SecureStore.getItemAsync(biometricCredentialsReadyKey),
+          LocalAuthentication.hasHardwareAsync(),
+          LocalAuthentication.isEnrolledAsync(),
+          LocalAuthentication.supportedAuthenticationTypesAsync(),
+        ]);
+
+        if (!isActive) return;
+
+        const supportsFace = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+        const supportsFingerprint = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
+        const label = supportsFace
+          ? 'Face ID'
+          : supportsFingerprint && Platform.OS === 'ios'
+            ? 'Touch ID'
+            : supportsFingerprint
+              ? 'fingeraftryk'
+              : 'biometrisk login';
+        setBiometricName(label);
+
+        const isEnabled = setupChoice === 'enabled';
+        setBiometricLoginAvailable(isEnabled);
+        if (isEnabled && (!hasHardware || !isEnrolled || (!supportsFace && !supportsFingerprint))) {
+          setBiometricNotice(`${label} er ikke tilgængelig på denne enhed. Brug din adgangskode i stedet.`);
+        } else if (isEnabled && credentialsReady !== 'true') {
+          setBiometricNotice('Log ind med din adgangskode én gang for at aktivere Face ID her.');
+        } else {
+          setBiometricNotice('');
+        }
+      } catch {
+        if (isActive) setBiometricNotice('Face ID kunne ikke kontrolleres. Brug din adgangskode i stedet.');
+      }
+    }
+
+    void checkBiometricLogin();
+    return () => { isActive = false; };
+  }, []);
+
+  async function handleBiometricLogin() {
+    if (!biometricLoginAvailable || isBiometricLoginLoading || isLoading) return;
+
+    setBiometricNotice('');
+    setIsBiometricLoginLoading(true);
+    try {
+      const savedCredentials = await SecureStore.getItemAsync(biometricCredentialsKey, biometricCredentialsOptions);
+      if (!savedCredentials) {
+        await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
+        setBiometricLoginAvailable(false);
+        setBiometricNotice('Log ind med din adgangskode for at aktivere Face ID igen.');
+        return;
+      }
+
+      const credentials: unknown = JSON.parse(savedCredentials);
+      if (
+        typeof credentials !== 'object'
+        || credentials === null
+        || !('email' in credentials)
+        || typeof credentials.email !== 'string'
+        || !('password' in credentials)
+        || typeof credentials.password !== 'string'
+      ) {
+        await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
+        setBiometricLoginAvailable(false);
+        setBiometricNotice('Log ind med din adgangskode for at aktivere Face ID igen.');
+        return;
+      }
+
+      await handleSavedCredentialsLogin({ email: credentials.email, password: credentials.password });
+    } catch {
+      setBiometricNotice('Face ID kunne ikke logge ind. Du kan bruge din adgangskode i stedet.');
+    } finally {
+      setIsBiometricLoginLoading(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -139,13 +238,13 @@ export default function LoginScreen() {
               value={password}
             />
 
-            {(!!error || !!notice) && (
+            {(!!error || !!notice || !!biometricNotice) && (
               <View style={[styles.statusBar, error ? styles.errorBar : styles.noticeBar]}>
                 <Text
                   accessibilityLiveRegion={error ? 'assertive' : 'polite'}
                   accessibilityRole={error ? 'alert' : 'text'}
                   style={[styles.statusText, error ? styles.errorText : styles.noticeText]}>
-                  {error || notice}
+                  {error || notice || biometricNotice}
                 </Text>
               </View>
             )}
@@ -161,11 +260,29 @@ export default function LoginScreen() {
           <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
-              disabled={isLoading || !email.trim() || !password}
+              disabled={isLoading || isBiometricLoginLoading || !email.trim() || !password}
               onPress={handleLogin}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (isLoading || !email.trim() || !password) && styles.disabled]}>
-              {isLoading ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.primaryButtonText}>Log ind</Text>}
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (isLoading || isBiometricLoginLoading || !email.trim() || !password) && styles.disabled]}>
+              {isLoading || isBiometricLoginLoading ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.primaryButtonText}>Log ind</Text>}
             </Pressable>
+
+            {biometricLoginAvailable && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Log ind med ${biometricName}`}
+                disabled={isLoading || isBiometricLoginLoading}
+                onPress={() => { void handleBiometricLogin(); }}
+                style={({ pressed }) => [styles.biometricLoginButton, pressed && styles.pressed, (isLoading || isBiometricLoginLoading) && styles.disabled]}>
+                {isBiometricLoginLoading
+                  ? <ActivityIndicator color={colors.white} />
+                  : <>
+                    {biometricName === 'Face ID'
+                      ? <ScanFace color={colors.white} size={20} />
+                      : <Fingerprint color={colors.white} size={20} />}
+                    <Text style={styles.biometricLoginButtonText}>Log ind med {biometricName}</Text>
+                  </>}
+              </Pressable>
+            )}
 
             <Pressable
               accessibilityRole="button"
@@ -240,6 +357,8 @@ const styles = StyleSheet.create({
   actions: { gap: 12 },
   primaryButton: { height: 58, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: colors.ink, fontSize: 17, fontWeight: '700' },
+  biometricLoginButton: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1, borderColor: '#A9B8FF', borderRadius: 32, backgroundColor: 'transparent' },
+  biometricLoginButtonText: { color: colors.white, fontSize: 15, fontWeight: '600' },
   secondaryButton: { height: 58, borderRadius: 32, borderWidth: 2, borderColor: '#A9B8FF', backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.white, fontSize: 16, fontWeight: '600', textAlign: 'center' },
   pressed: { opacity: 0.82 },

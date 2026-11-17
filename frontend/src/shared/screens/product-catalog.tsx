@@ -29,6 +29,7 @@ import { ActivityIndicator, Animated, AppState, Modal, PanResponder, Platform, P
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
+import { biometricCredentialsKey, biometricCredentialsOptions, biometricCredentialsReadyKey, biometricSetupKey } from '@/frontend/src/constants/biometrics';
 
 const webColor = (web: string, native: string) => Platform.OS === 'web' ? web : native;
 
@@ -80,8 +81,6 @@ const categoryWidths: Record<string, number> = {
 };
 
 const productColors = ['#E1E9FF', '#FCE4E1', '#E2F3E5', '#FFF0D7', '#DFF1F7', '#EFE6F8'];
-
-const biometricSetupKey = 'frigo-biometric-setup';
 
 function getPurchasePeriodStart(date: Date) {
   return date.getDate() >= 21
@@ -760,8 +759,20 @@ export function ProductCatalog() {
   async function toggleBiometrics(enabled: boolean) {
     setBiometricNotice('');
     if (!enabled) {
-      await SecureStore.setItemAsync(biometricSetupKey, 'skipped');
+      try {
+        await SecureStore.setItemAsync(biometricSetupKey, 'skipped');
+      } catch {
+        setBiometricNotice('Biometrisk login kunne ikke deaktiveres. Prøv igen.');
+        return;
+      }
+
       setBiometricEnabled(false);
+      try {
+        await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
+        await SecureStore.deleteItemAsync(biometricCredentialsKey, biometricCredentialsOptions);
+      } catch {
+        setBiometricNotice('Biometrisk login er slået fra, men de gemte loginoplysninger kunne ikke slettes.');
+      }
       return;
     }
 
@@ -775,8 +786,10 @@ export function ProductCatalog() {
       cancelLabel: 'Annuller',
     });
     if (result.success) {
+      await SecureStore.deleteItemAsync(biometricCredentialsReadyKey);
       await SecureStore.setItemAsync(biometricSetupKey, 'enabled');
       setBiometricEnabled(true);
+      setBiometricNotice('Log ind med din adgangskode én gang for at aktivere Face ID på denne telefon.');
     } else {
       setBiometricNotice('Biometrisk login blev ikke aktiveret. Prøv igen.');
     }
@@ -1332,9 +1345,13 @@ export function ProductCatalog() {
                 </View>
 
                 <Text style={styles.settingsLabel}>Navn</Text>
-                <Text style={styles.settingsInput}>{employeeProfile?.display_name || 'Ikke angivet'}</Text>
+                <View style={styles.settingsInput}>
+                  <Text style={styles.settingsInputText}>{employeeProfile?.display_name || 'Ikke angivet'}</Text>
+                </View>
                 <Text style={styles.settingsLabel}>E-mail</Text>
-                <Text style={styles.settingsInput}>{employeeProfile?.email || 'Ikke angivet'}</Text>
+                <View style={styles.settingsInput}>
+                  <Text style={styles.settingsInputText}>{employeeProfile?.email || 'Ikke angivet'}</Text>
+                </View>
 
                 <View style={styles.passwordLabelRow}>
                   <View style={styles.passwordLabelGroup}>
@@ -1367,7 +1384,7 @@ export function ProductCatalog() {
                   </View>
                   <View style={styles.biometricSettingCopy}>
                     <Text style={styles.accountRowTitle}>Log ind med Face ID</Text>
-                    <Text style={styles.accountRowSubtitle}>Til. Bruges næste gang du logger ind.</Text>
+                    <Text style={styles.accountRowSubtitle}>{biometricEnabled ? 'Til. Bruges næste gang du logger ind.' : 'Fra. Brug adgangskode til login.'}</Text>
                   </View>
                   <Switch
                     accessibilityLabel="Log ind med Face ID"
@@ -1842,7 +1859,8 @@ const styles = StyleSheet.create({
   outlineButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: colors.line, borderRadius: 23, backgroundColor: colors.white },
   outlineButtonText: { color: colors.blue, fontSize: 13, fontWeight: '600' },
   settingsLabel: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  settingsInput: { minHeight: 48, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white, color: colors.ink, fontSize: 14 },
+  settingsInput: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white },
+  settingsInputText: { color: colors.ink, fontSize: 14 },
   passwordLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 1 },
   passwordLabelGroup: { gap: 4 },
   passwordMask: { color: colors.ink, fontSize: 15, letterSpacing: 1.4 },
