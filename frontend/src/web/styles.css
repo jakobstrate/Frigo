@@ -1098,11 +1098,40 @@
 .frigo-product-modal textarea { min-height: 64px; padding: 10px 11px; resize: vertical; }
 .frigo-product-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .frigo-product-form-grid > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
-.frigo-product-active-toggle { display: flex; min-height: 48px; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 12px; margin: 0 !important; padding: 8px 12px; border-radius: 10px; background: var(--frigo-color-frost); cursor: pointer; }
+.frigo-product-active-toggle { display: flex; min-height: 60px; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 12px; margin: 0 !important; padding: 8px 12px; border-radius: 10px; background: var(--frigo-color-frost); cursor: pointer; }
 .frigo-product-active-toggle > span { display: flex; flex-direction: column; gap: 3px; }
 .frigo-product-active-toggle strong { color: var(--frigo-color-night); font-size: 11px; }
 .frigo-product-active-toggle small { color: var(--admin-muted); font-size: 9px; font-weight: 400; }
-.frigo-product-active-toggle input { width: 36px; height: 20px; margin: 0; accent-color: var(--frigo-color-primary); }
+.frigo-product-active-toggle input {
+  position: relative;
+  width: 38px;
+  min-width: 38px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  appearance: none;
+  background: var(--frigo-color-gray);
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+.frigo-product-active-toggle input::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--frigo-color-white);
+  content: '';
+  transition: transform .2s ease;
+}
+.frigo-product-active-toggle input:checked { background: var(--frigo-color-primary); }
+.frigo-product-active-toggle input:checked::before { transform: translateX(14px); }
+.frigo-product-active-toggle input:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
 .frigo-category-modal { width: min(100%, 480px); }
 .frigo-category-create { gap: 7px !important; margin-bottom: 10px; }
 .frigo-category-create label { margin: 0 !important; }
