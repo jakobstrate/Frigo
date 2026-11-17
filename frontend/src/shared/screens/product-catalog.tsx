@@ -580,10 +580,10 @@ export function ProductCatalog() {
 
   const shownProducts = useMemo(() => products.filter((product) => {
     const matchesTab = activeTab !== 'favorites' || favorites.includes(product.id);
-    const matchesCategory = activeCategory === 'Alle' || product.category === activeCategory;
+    const matchesCategory = activeTab !== 'products' || activeCategory === 'Alle' || product.category === activeCategory;
     const matchesSearch = product.name.toLowerCase().includes(search.trim().toLowerCase());
     return matchesTab && matchesCategory && matchesSearch;
-  }), [activeCategory, activeTab, favorites, search]);
+  }), [activeCategory, activeTab, favorites, products, search]);
 
   const cartItems = products.filter((product) => (cart[product.id] ?? 0) > 0);
   const cartCount = Object.values(cart).reduce((total, quantity) => total + quantity, 0);
