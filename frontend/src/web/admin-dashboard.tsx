@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/backend/src/supabase';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
 import { AdminRole, getAdminPages, hasAdminPermission, type AdminPageId } from '@/frontend/src/web/admin-access';
+import AdminOverview from '@/frontend/src/web/admin-overview';
 import AdminReview from '@/frontend/src/web/admin-review';
 import CompanyManagement from '@/frontend/src/web/company-management';
 import DepartmentManagement from '@/frontend/src/web/department-management';
-import AdminOverview from '@/frontend/src/web/admin-overview';
 import ProductManagement from '@/frontend/src/web/product-management';
 import RegistrationManagement from '@/frontend/src/web/registration-management';
 import UserManagement from '@/frontend/src/web/user-management';
@@ -116,12 +116,8 @@ function AdminPageContent({
   if (page === 'companies') {
     return <CompanyManagement />;
   }
-
-  if (page === 'users') {
-    return <UserManagement role={profile.role} companyId={profile.company_id} />;
-  }
-
-  if (page === 'departments') {
+  
+   if (page === 'departments') {
     return (
       <DepartmentManagement
         role={profile.role}
@@ -129,6 +125,10 @@ function AdminPageContent({
         companyName={companyName}
       />
     );
+  }
+
+  if (page === 'users') {
+    return <UserManagement role={profile.role} companyId={profile.company_id} />;
   }
 
   if (page === 'products') {
