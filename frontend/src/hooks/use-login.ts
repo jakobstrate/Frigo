@@ -47,7 +47,7 @@ export function useLogin(loginConfiguration?: LoginConfiguration) {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('status, role')
+        .select('status, role, roles, company_id')
         .eq('id', data.user.id)
         .maybeSingle();
 
@@ -75,9 +75,13 @@ export function useLogin(loginConfiguration?: LoginConfiguration) {
         return;
       }
 
-      const destination = profile.role === 'super_admin' || profile.role === 'company_admin'
-        ? '/admin-review' as Href
-        : '/explore' as Href;
+      const isAdmin = profile.role === 'super_admin' || profile.role === 'company_admin';
+      const hasEmployeeAccess = profile.roles.includes('employee') && profile.company_id !== null;
+      const destination = allowEmployeeAccess && hasEmployeeAccess
+        ? '/explore' as Href
+        : isAdmin
+          ? '/admin-review' as Href
+          : '/explore' as Href;
 
       if (onLoginSuccess) {
         await onLoginSuccess(destination, { email: loginEmail.trim(), password: loginPassword });

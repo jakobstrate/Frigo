@@ -33,6 +33,7 @@ create table public.profiles (
   display_name text not null,
   email text not null,
   role public.app_role not null default 'employee',
+  roles public.app_role[] not null default array['employee'::public.app_role],
   status public.user_status not null default 'pending',
   invitation_completed boolean not null default true,
   company_id bigint references public.companies(id) on delete restrict,
@@ -42,8 +43,22 @@ create table public.profiles (
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
   unique (id, company_id),
+  constraint profiles_primary_role_assigned check (
+    cardinality(roles) > 0
+    and role = case
+      when roles @> array['super_admin'::public.app_role] then 'super_admin'::public.app_role
+      when roles @> array['company_admin'::public.app_role] then 'company_admin'::public.app_role
+      else 'employee'::public.app_role
+    end
+  ),
   constraint employees_need_a_company check (
-    role = 'super_admin' or company_id is not null
+    (role = 'super_admin' or company_id is not null)
+    and (not (roles @> array['company_admin'::public.app_role]) or company_id is not null)
+    and (
+      not (roles @> array['employee'::public.app_role])
+      or company_id is not null
+      or status in ('pending', 'rejected')
+    )
   )
 );
 
@@ -511,9 +526,9 @@ begin
   end if;
 
   if tg_op = 'UPDATE'
-    and old.role = 'company_admin'
+    and old.roles @> array['company_admin'::public.app_role]
     and old.status = 'active'
-    and new.role = 'company_admin'
+    and new.roles @> array['company_admin'::public.app_role]
     and new.status = 'inactive'
     and new.company_id = old.company_id
     and not new.invitation_completed
@@ -527,11 +542,11 @@ begin
     return new;
   end if;
 
-  if old.role = 'company_admin' and old.status = 'active' then
+  if old.roles @> array['company_admin'::public.app_role] and old.status = 'active' then
     if tg_op = 'DELETE' then
       replacement_required := true;
     else
-      replacement_required := new.role <> 'company_admin'
+      replacement_required := not (new.roles @> array['company_admin'::public.app_role])
         or new.status <> 'active'
         or new.company_id <> old.company_id;
     end if;
@@ -540,7 +555,7 @@ begin
   if replacement_required and not exists (
        select 1 from public.profiles replacement
        where replacement.company_id = old.company_id
-         and replacement.role = 'company_admin'
+         and replacement.roles @> array['company_admin'::public.app_role]
          and replacement.status = 'active'
          and replacement.id <> old.id
      ) then
@@ -561,7 +576,7 @@ set search_path = public
 as $$
 begin
   if auth.role() <> 'service_role' and not public.is_super_admin() then
-    if new.role <> old.role or new.company_id <> old.company_id then
+    if new.role <> old.role or new.roles is distinct from old.roles or new.company_id <> old.company_id then
       raise exception 'Only a super admin can change roles or company assignments';
     end if;
   end if;
@@ -570,7 +585,7 @@ end;
 $$;
 
 create trigger prevent_last_company_admin_delete
-before delete or update of role, status, company_id on public.profiles
+before delete or update of role, roles, status, company_id on public.profiles
 for each row execute function public.prevent_last_company_admin_delete();
 
 create trigger prevent_company_admin_role_escalation
@@ -614,7 +629,12 @@ using (public.is_super_admin() or id = auth.uid() or company_id = public.current
 
 create policy "Users create their employee profile"
 on public.profiles for insert to authenticated
-with check (id = auth.uid() and role = 'employee' and status = 'pending');
+with check (
+  id = auth.uid()
+  and role = 'employee'
+  and roles = array['employee'::public.app_role]
+  and status = 'pending'
+);
 
 create policy "Super admins create profiles"
 on public.profiles for insert to authenticated
@@ -625,6 +645,7 @@ on public.profiles for insert to authenticated
 with check (
   public.current_user_role() = 'company_admin'
   and role = 'employee'
+  and roles = array['employee'::public.app_role]
   and company_id = public.current_company_id()
 );
 
@@ -641,7 +662,16 @@ with check (
 
 create policy "Employees create employee requests"
 on public.employee_requests for insert to authenticated
-with check (employee_id = auth.uid() and company_id = public.current_company_id());
+with check (
+  employee_id = auth.uid()
+  and company_id = public.current_company_id()
+  and exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and roles @> array['employee'::public.app_role]
+  )
+);
 
 create policy "Admins view employee requests"
 on public.employee_requests for select to authenticated

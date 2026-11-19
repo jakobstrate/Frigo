@@ -518,7 +518,7 @@ export default function CompanyManagement() {
     const [companiesResult, departmentsResult, profilesResult] = await Promise.all([
       supabase.from('companies').select('id, name, status').neq('status', 'deleted').order('name'),
       supabase.from('departments').select('id, company_id, name').order('name'),
-      supabase.from('profiles').select('id, company_id, role, status, invitation_completed, display_name, email').neq('status', 'deleted'),
+      supabase.from('profiles').select('id, company_id, roles, status, invitation_completed, display_name, email').neq('status', 'deleted'),
     ]);
 
     const queryError = companiesResult.error ?? departmentsResult.error ?? profilesResult.error;
@@ -539,13 +539,13 @@ export default function CompanyManagement() {
     for (const profile of profilesResult.data ?? []) {
       if (profile.company_id === null || !profile.invitation_completed) continue;
       const counts = profileCounts.get(profile.company_id) ?? { companyAdmins: 0, employees: 0, admins: [] };
-      if (profile.role === 'company_admin') {
+      if (profile.roles.includes('company_admin')) {
         counts.companyAdmins += 1;
         if (profile.status === 'active') {
           counts.admins.push({ id: profile.id, displayName: profile.display_name, email: profile.email });
         }
       }
-      if (profile.role === 'employee') counts.employees += 1;
+      if (profile.roles.includes('employee')) counts.employees += 1;
       profileCounts.set(profile.company_id, counts);
     }
 

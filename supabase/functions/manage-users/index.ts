@@ -40,6 +40,23 @@ function validRole(value: unknown): value is AppRole {
   return value === 'super_admin' || value === 'company_admin' || value === 'employee';
 }
 
+function validRoles(value: unknown): value is AppRole[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every(validRole)
+    && new Set(value).size === value.length;
+}
+
+function primaryRole(roles: AppRole[]): AppRole {
+  if (roles.includes('super_admin')) return 'super_admin';
+  if (roles.includes('company_admin')) return 'company_admin';
+  return 'employee';
+}
+
+function sameRoles(left: AppRole[], right: AppRole[]) {
+  return left.length === right.length && left.every((role) => right.includes(role));
+}
+
 function validEmail(value: unknown): value is string {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -115,7 +132,7 @@ async function hasOtherActiveCompanyAdmins(companyId: number, excludedUserId?: s
     .from('profiles')
     .select('id')
     .eq('company_id', companyId)
-    .eq('role', 'company_admin')
+    .contains('roles', ['company_admin'])
     .eq('status', 'active');
   if (excludedUserId) query = query.neq('id', excludedUserId);
   const { data, error } = await query.limit(1);
@@ -287,19 +304,22 @@ Deno.serve(async (request: Request) => {
     if (body.action === 'create') {
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const requestedRole = body.role;
+      const requestedRoles = body.roles === undefined && validRole(body.role) ? [body.role] : body.roles;
       const companyId = positiveId(body.companyId);
       const departmentId = body.departmentId === null ? null : positiveId(body.departmentId);
       const avatarPath = typeof body.avatarPath === 'string' ? body.avatarPath : null;
 
-      if (!name || !validEmail(email) || !validRole(requestedRole)) {
-        return jsonResponse(400, { error: 'Enter a name, valid email address, and role.' });
+      if (!name || !validEmail(email) || !validRoles(requestedRoles)) {
+        return jsonResponse(400, { error: 'Enter a name, valid email address, and at least one role.' });
       }
-      if (actor.role === 'company_admin' && requestedRole !== 'employee') {
+      const requestedRole = primaryRole(requestedRoles);
+      if (actor.role === 'company_admin'
+        && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
         return jsonResponse(403, { error: 'Company admins can only create employees.' });
       }
       const assignedCompanyId = actor.role === 'company_admin' ? actor.company_id : companyId;
-      if (requestedRole !== 'super_admin' && assignedCompanyId === null) {
+      if ((requestedRoles.includes('employee') || requestedRoles.includes('company_admin'))
+        && assignedCompanyId === null) {
         return jsonResponse(400, { error: 'Choose a company for this user.' });
       }
       if (body.departmentId !== null && departmentId === null) {
@@ -331,6 +351,7 @@ Deno.serve(async (request: Request) => {
         display_name: name,
         email,
         role: requestedRole,
+        roles: requestedRoles,
         status: 'inactive',
         invitation_completed: false,
         company_id: assignedCompanyId,
@@ -355,7 +376,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: target, error: targetError } = await supabaseAdmin
         .from('profiles')
-        .select('id, display_name, email, role, status, invitation_completed, company_id, department_id')
+        .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id')
         .eq('id', userId)
         .maybeSingle();
       if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
@@ -388,25 +409,30 @@ Deno.serve(async (request: Request) => {
 
       const name = typeof body.name === 'string' ? body.name.trim() : target.display_name;
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : target.email;
-      const requestedRole = body.role === undefined ? target.role : body.role;
+      const requestedRoles = body.roles === undefined
+        ? body.role === undefined ? target.roles : [body.role]
+        : body.roles;
       const companyId = body.companyId === undefined ? target.company_id : positiveId(body.companyId);
       const departmentId = body.departmentId === undefined
         ? target.department_id
         : body.departmentId === null ? null : positiveId(body.departmentId);
       const requestedStatus = body.status === undefined ? target.status : body.status as UserStatus;
 
-      if (!name || !validEmail(email) || !validRole(requestedRole)
+      if (!name || !validEmail(email) || !validRoles(requestedRoles)
         || !['active', 'inactive', 'pending', 'rejected'].includes(requestedStatus)) {
         return jsonResponse(400, { error: 'Enter valid user details and status.' });
       }
-      if (actor.role === 'company_admin' && requestedRole !== 'employee') {
+      const requestedRole = primaryRole(requestedRoles);
+      if (actor.role === 'company_admin'
+        && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
         return jsonResponse(403, { error: 'Company admins cannot change user roles.' });
       }
       if (actor.role !== 'super_admin'
-        && (requestedRole !== target.role || companyId !== target.company_id)) {
+        && (!sameRoles(requestedRoles, target.roles) || companyId !== target.company_id)) {
         return jsonResponse(403, { error: 'Only a Superadmin can change roles or company assignments.' });
       }
-      if (requestedRole !== 'super_admin' && companyId === null) {
+      if ((requestedRoles.includes('employee') || requestedRoles.includes('company_admin'))
+        && companyId === null) {
         return jsonResponse(400, { error: 'Choose a company for this user.' });
       }
       if (requestedStatus === 'active' && ['pending', 'rejected'].includes(target.status)) {
@@ -419,9 +445,9 @@ Deno.serve(async (request: Request) => {
         return jsonResponse(400, { error: 'Choose a valid department.' });
       }
       await validateCompanyAndDepartment(companyId, departmentId);
-      const becomesActiveCompanyAdmin = requestedRole === 'company_admin'
+      const becomesActiveCompanyAdmin = requestedRoles.includes('company_admin')
         && requestedStatus === 'active'
-        && (target.role !== 'company_admin' || target.status !== 'active' || target.company_id !== companyId);
+        && (!target.roles.includes('company_admin') || target.status !== 'active' || target.company_id !== companyId);
       const hadOtherCompanyAdmin = becomesActiveCompanyAdmin && companyId !== null
         ? await hasOtherActiveCompanyAdmins(companyId, userId)
         : true;
@@ -447,6 +473,7 @@ Deno.serve(async (request: Request) => {
         display_name: name,
         email,
         role: requestedRole,
+        roles: requestedRoles,
         status: requestedStatus,
         company_id: companyId,
         department_id: departmentId,

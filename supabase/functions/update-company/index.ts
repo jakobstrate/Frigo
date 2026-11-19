@@ -111,13 +111,14 @@ Deno.serve(async (request: Request) => {
 
   if (adminId) {
     const [{ data: adminProfile, error: adminProfileError }, { data: authAdmin, error: authAdminError }] = await Promise.all([
-      supabaseAdmin.from('profiles').select('id, role, status').eq('id', adminId).eq('company_id', companyId).maybeSingle(),
+      supabaseAdmin.from('profiles').select('id, roles, status').eq('id', adminId).eq('company_id', companyId).maybeSingle(),
       supabaseAdmin.auth.admin.getUserById(adminId),
     ]);
     if (adminProfileError || authAdminError) {
       return jsonResponse(500, { error: 'Could not load the company administrator details.' });
     }
-    if (!adminProfile || adminProfile.role !== 'company_admin' || adminProfile.status !== 'active' || !authAdmin.user?.email) {
+    if (!adminProfile || !adminProfile.roles.includes('company_admin')
+      || adminProfile.status !== 'active' || !authAdmin.user?.email) {
       return jsonResponse(400, { error: 'Select an active company administrator.' });
     }
 

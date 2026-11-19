@@ -21,13 +21,18 @@ export default function ExploreScreen() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('status')
+        .select('status, role, roles, company_id')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!isActive) return;
-      if (profile?.status === 'active') {
+      if (profile?.status === 'active'
+        && profile.company_id !== null
+        && profile.roles.includes('employee')) {
         setIsAuthorized(true);
+      } else if (profile?.status === 'active'
+        && (profile.role === 'super_admin' || profile.role === 'company_admin')) {
+        router.replace('/admin-review' as Href);
       } else {
         router.replace('/pending' as Href);
       }

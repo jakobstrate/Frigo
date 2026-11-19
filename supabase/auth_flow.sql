@@ -4,17 +4,95 @@
 alter table public.profiles
   add column if not exists department_id bigint,
   add column if not exists avatar_path text,
-  add column if not exists invitation_completed boolean not null default true;
+  add column if not exists invitation_completed boolean not null default true,
+  add column if not exists roles public.app_role[] not null default array['employee'::public.app_role];
+
+update public.profiles
+set roles = array[role]
+where not (roles @> array[role]);
+
+update public.profiles
+set roles = roles || array['employee'::public.app_role]
+where role = 'company_admin'
+  and company_id is not null
+  and not (roles @> array['employee'::public.app_role]);
+
+update public.profiles
+set roles = roles
+  || case
+    when roles @> array['company_admin'::public.app_role] then array[]::public.app_role[]
+    else array['company_admin'::public.app_role]
+  end
+  || case
+    when roles @> array['employee'::public.app_role] then array[]::public.app_role[]
+    else array['employee'::public.app_role]
+  end
+where role = 'super_admin'
+  and company_id is not null
+  and (
+    not (roles @> array['company_admin'::public.app_role])
+    or not (roles @> array['employee'::public.app_role])
+  );
+
+drop policy if exists "Employees create employee requests" on public.employee_requests;
+create policy "Employees create employee requests"
+on public.employee_requests for insert to authenticated
+with check (
+  employee_id = auth.uid()
+  and company_id = public.current_company_id()
+  and exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and roles @> array['employee'::public.app_role]
+  )
+);
 
 alter table public.profiles
   drop constraint if exists employees_need_a_company;
 
 alter table public.profiles
-  add constraint employees_need_a_company check (
-    role = 'super_admin'
-    or company_id is not null
-    or status in ('pending', 'rejected')
+  drop constraint if exists profiles_primary_role_assigned;
+alter table public.profiles
+  add constraint profiles_primary_role_assigned check (
+    cardinality(roles) > 0
+    and role = case
+      when roles @> array['super_admin'::public.app_role] then 'super_admin'::public.app_role
+      when roles @> array['company_admin'::public.app_role] then 'company_admin'::public.app_role
+      else 'employee'::public.app_role
+    end
   );
+
+alter table public.profiles
+  add constraint employees_need_a_company check (
+    (role = 'super_admin' or company_id is not null)
+    and (not (roles @> array['company_admin'::public.app_role]) or company_id is not null)
+    and (
+      not (roles @> array['employee'::public.app_role])
+      or company_id is not null
+      or status in ('pending', 'rejected')
+    )
+  );
+
+drop policy if exists "Users create their employee profile" on public.profiles;
+create policy "Users create their employee profile"
+on public.profiles for insert to authenticated
+with check (
+  id = auth.uid()
+  and role = 'employee'
+  and roles = array['employee'::public.app_role]
+  and status = 'pending'
+);
+
+drop policy if exists "Company admins create employees" on public.profiles;
+create policy "Company admins create employees"
+on public.profiles for insert to authenticated
+with check (
+  public.current_user_role() = 'company_admin'
+  and role = 'employee'
+  and roles = array['employee'::public.app_role]
+  and company_id = public.current_company_id()
+);
 
 alter table public.profiles
   drop constraint if exists profiles_department_company_fkey;
@@ -111,17 +189,17 @@ begin
   from public.profiles
   where id = auth.uid()
     and status = 'active'
-    and role = 'employee'
+    and roles @> array['employee'::public.app_role]
     and company_id is not null;
 
   if not found then
-    raise exception 'An active employee account is required to request account deletion';
+    raise exception 'An active company account is required to request account deletion';
   end if;
 
   select * into target_admin
   from public.profiles
   where company_id = requester.company_id
-    and role = 'company_admin'
+    and roles @> array['company_admin'::public.app_role]
     and status = 'active'
   order by created_at
   limit 1;
@@ -147,7 +225,7 @@ begin
   select admin.id, 'Account deletion request', requester.display_name || ' requested account deletion.'
   from public.profiles admin
   where admin.company_id = requester.company_id
-    and admin.role = 'company_admin'
+    and admin.roles @> array['company_admin'::public.app_role]
     and admin.status = 'active';
 
   if not found then
@@ -180,7 +258,10 @@ begin
   from public.profiles
   where id = p_reviewer_id
     and status = 'active'
-    and role in ('company_admin', 'super_admin');
+    and (
+      roles @> array['company_admin'::public.app_role]
+      or roles @> array['super_admin'::public.app_role]
+    );
 
   if not found then
     raise exception 'An active admin account is required';
@@ -195,9 +276,11 @@ begin
     raise exception 'This account deletion request is no longer pending';
   end if;
 
-  if reviewer.role = 'company_admin' and reviewer.company_id = request_row.company_id then
+  if reviewer.roles @> array['company_admin'::public.app_role]
+    and reviewer.company_id = request_row.company_id then
     null;
-  elsif reviewer.role = 'super_admin' and request_row.requested_admin_id = reviewer.id then
+  elsif reviewer.roles @> array['super_admin'::public.app_role]
+    and request_row.requested_admin_id = reviewer.id then
     null;
   else
     raise exception 'You are not authorized to review this request';
@@ -301,7 +384,7 @@ begin
     select * into target_admin
     from public.profiles p
     where p.company_id = requested_company_id
-      and p.role = 'company_admin'
+      and p.roles @> array['company_admin'::public.app_role]
       and p.status = 'active'
     order by p.created_at
     limit 1;
@@ -334,12 +417,13 @@ begin
       raise exception 'No active CompanyAdmin or SuperAdmin matches the entered email';
     end if;
 
-    if target_admin.role = 'company_admin' and target_admin.company_id is null then
+    if target_admin.roles @> array['company_admin'::public.app_role]
+      and target_admin.company_id is null then
       raise exception 'The selected CompanyAdmin is not linked to a company';
     end if;
 
     assigned_company_id := case
-      when target_admin.role = 'company_admin' then target_admin.company_id
+      when target_admin.roles @> array['company_admin'::public.app_role] then target_admin.company_id
       else null
     end;
   end if;
@@ -366,12 +450,12 @@ begin
     'pending'
   );
 
-  if target_admin.role = 'company_admin' then
+  if target_admin.roles @> array['company_admin'::public.app_role] then
     insert into public.notifications (user_id, title, message)
     select p.id, 'Employee request', requested_name || ' requested access to Frigo.'
     from public.profiles p
     where p.company_id = assigned_company_id
-      and p.role = 'company_admin'
+      and p.roles @> array['company_admin'::public.app_role]
       and p.status = 'active';
   else
     insert into public.notifications (user_id, title, message)
@@ -430,12 +514,13 @@ begin
   ) as department;
 
   if p_admin_id is not null then
-    insert into public.profiles (id, display_name, email, role, status, company_id, invitation_completed)
+    insert into public.profiles (id, display_name, email, role, roles, status, company_id, invitation_completed)
     values (
       p_admin_id,
       trim(p_admin_name),
       lower(trim(p_admin_email)),
       'company_admin',
+      array['company_admin'::public.app_role, 'employee'::public.app_role],
       'inactive',
       created_company_id,
       false
@@ -486,7 +571,7 @@ begin
     select 1
     from public.profiles p
     where p.company_id = invited_profile.company_id
-      and p.role = 'company_admin'
+      and p.roles @> array['company_admin'::public.app_role]
       and p.status = 'active'
       and p.id <> invited_profile.id
   ) into has_active_company_admin;
@@ -496,7 +581,7 @@ begin
       invitation_completed = true
   where id = invited_profile.id;
 
-  if invited_profile.role = 'company_admin'
+  if invited_profile.roles @> array['company_admin'::public.app_role]
     and invited_profile.company_id is not null
     and not has_active_company_admin then
     update public.employee_requests
@@ -533,9 +618,9 @@ begin
   end if;
 
   if tg_op = 'UPDATE'
-    and old.role = 'company_admin'
+    and old.roles @> array['company_admin'::public.app_role]
     and old.status = 'active'
-    and new.role = 'company_admin'
+    and new.roles @> array['company_admin'::public.app_role]
     and new.status = 'inactive'
     and new.company_id = old.company_id
     and not new.invitation_completed
@@ -549,11 +634,11 @@ begin
     return new;
   end if;
 
-  if old.role = 'company_admin' and old.status = 'active' then
+  if old.roles @> array['company_admin'::public.app_role] and old.status = 'active' then
     if tg_op = 'DELETE' then
       replacement_required := true;
     else
-      replacement_required := new.role <> 'company_admin'
+      replacement_required := not (new.roles @> array['company_admin'::public.app_role])
         or new.status <> 'active'
         or new.company_id <> old.company_id;
     end if;
@@ -562,7 +647,7 @@ begin
   if replacement_required and not exists (
     select 1 from public.profiles replacement
     where replacement.company_id = old.company_id
-      and replacement.role = 'company_admin'
+      and replacement.roles @> array['company_admin'::public.app_role]
       and replacement.status = 'active'
       and replacement.id <> old.id
   ) then
@@ -593,13 +678,23 @@ set search_path = public
 as $$
 begin
   if auth.role() <> 'service_role' and not public.is_super_admin() then
-    if new.role <> old.role or new.company_id <> old.company_id then
+    if new.role <> old.role or new.roles is distinct from old.roles or new.company_id <> old.company_id then
       raise exception 'Only a super admin can change roles or company assignments';
     end if;
   end if;
   return new;
 end;
 $$;
+
+drop trigger if exists prevent_last_company_admin_delete on public.profiles;
+create trigger prevent_last_company_admin_delete
+before delete or update of role, roles, status, company_id on public.profiles
+for each row execute function public.prevent_last_company_admin_delete();
+
+drop trigger if exists prevent_company_admin_role_escalation on public.profiles;
+create trigger prevent_company_admin_role_escalation
+before update on public.profiles
+for each row execute function public.prevent_company_admin_role_escalation();
 
 create or replace function public.soft_delete_company(p_company_id bigint)
 returns void
@@ -674,7 +769,10 @@ begin
     raise exception 'This employee request is no longer pending';
   end if;
 
-  if reviewer.role = 'super_admin' then
+  if reviewer.roles @> array['company_admin'::public.app_role]
+    and reviewer.company_id = request_row.company_id then
+    approved_company_id := reviewer.company_id;
+  elsif reviewer.roles @> array['super_admin'::public.app_role] then
     if request_row.requested_admin_id is distinct from reviewer.id then
       raise exception 'Only the SuperAdmin assigned to this request can review it';
     end if;
@@ -686,9 +784,6 @@ begin
       end if;
       approved_company_id := p_company_id;
     end if;
-  elsif reviewer.role = 'company_admin'
-    and reviewer.company_id = request_row.company_id then
-    approved_company_id := reviewer.company_id;
   else
     raise exception 'You are not authorized to review this request';
   end if;
