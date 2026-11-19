@@ -695,6 +695,9 @@
 .frigo-admin-company-card h3 { overflow-wrap: anywhere; margin: 0; color: var(--frigo-color-night); font-size: 16px; }
 .frigo-admin-status { flex: 0 0 auto; padding: 5px 9px; border-radius: 20px; color: var(--frigo-color-green); background: var(--frigo-color-light-blue); font-size: 10px; font-weight: 700; }
 .frigo-admin-status.is-inactive { color: var(--frigo-color-gray); background: var(--frigo-color-frost); }
+.frigo-admin-status-button { border: 0; font-family: inherit; cursor: pointer; }
+.frigo-admin-status-button:focus-visible { outline: 2px solid var(--frigo-color-primary); outline-offset: 2px; }
+.frigo-admin-status-button:disabled { cursor: wait; }
 .frigo-admin-company-departments { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
 .frigo-admin-company-department { padding: 5px 9px; border-radius: 14px; color: var(--frigo-color-marine); background: var(--frigo-color-light-blue); font-size: 10px; }
 .frigo-admin-company-meta { margin: 0; color: var(--admin-muted); font-size: 11px; }

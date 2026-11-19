@@ -101,6 +101,9 @@ Deno.serve(async (request: Request) => {
   if (!company || company.status === 'deleted') {
     return jsonResponse(404, { error: 'The company does not exist or has been deleted.' });
   }
+  if (company.status === 'inactive' && !adminId) {
+    return jsonResponse(409, { error: 'Reactivate the company before inviting a new administrator.' });
+  }
 
   let effectiveAdminId = adminId;
   let previousEmail: string | null = null;

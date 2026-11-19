@@ -257,6 +257,61 @@ function DeleteCompanyModal({
   );
 }
 
+function CompanyStatusModal({
+  company,
+  isSaving,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  company: CompanyDetails;
+  isSaving: boolean;
+  error: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isActive = company.status === 'active';
+
+  return (
+    <div className="frigo-admin-modal-backdrop">
+      <section
+        className="frigo-admin-modal frigo-admin-delete-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="frigo-company-status-title"
+        aria-describedby="frigo-company-status-description"
+        aria-busy={isSaving}
+      >
+        <div className="frigo-admin-modal-header">
+          <h2 id="frigo-company-status-title">{isActive ? 'Gør virksomhed inaktiv?' : 'Aktivér virksomhed?'}</h2>
+          <button className="frigo-admin-modal-close" type="button" onClick={onClose} disabled={isSaving} aria-label="Luk">
+            ×
+          </button>
+        </div>
+        <p id="frigo-company-status-description" className="frigo-admin-modal-help">
+          {isActive
+            ? `Er du sikker på, at du vil gøre ${company.name} inaktiv? Gemte data bevares, men ingen fra virksomheden kan logge ind.`
+            : `Vil du aktivere ${company.name} igen? Brugere med en aktiv konto får adgang til at logge ind.`}
+        </p>
+        {error && <p className="frigo-admin-error" role="alert">{error}</p>}
+        <div className="frigo-admin-modal-actions">
+          <button className="frigo-admin-secondary-button" type="button" onClick={onClose} disabled={isSaving}>
+            Annuller
+          </button>
+          <button
+            className={isActive ? 'frigo-admin-danger-button' : 'frigo-admin-primary-button'}
+            type="button"
+            onClick={onConfirm}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Gemmer...' : isActive ? 'Gør inaktiv' : 'Aktivér'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function CreateCompanyModal({
   onClose,
   onCreated,
@@ -453,7 +508,9 @@ export default function CompanyManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [companyBeingEdited, setCompanyBeingEdited] = useState<CompanyDetails | null>(null);
   const [companyBeingDeleted, setCompanyBeingDeleted] = useState<CompanyDetails | null>(null);
+  const [companyBeingStatusChanged, setCompanyBeingStatusChanged] = useState<CompanyDetails | null>(null);
   const [deletingCompanyId, setDeletingCompanyId] = useState<number | null>(null);
+  const [changingCompanyStatusId, setChangingCompanyStatusId] = useState<number | null>(null);
 
   const loadCompanies = useCallback(async () => {
     setIsLoading(true);
@@ -558,6 +615,42 @@ export default function CompanyManagement() {
     setDeletingCompanyId(null);
   }
 
+  async function handleCompanyStatusChange(company: CompanyDetails) {
+    const status = company.status === 'active' ? 'inactive' : 'active';
+    setChangingCompanyStatusId(company.id);
+    setActionError('');
+    setSuccessMessage('');
+    try {
+      const { error } = await supabase.functions.invoke('manage-users', {
+        body: { action: 'set-company-status', companyId: company.id, status },
+      });
+
+      if (error) {
+        let message = error.message;
+        if (error.context instanceof Response) {
+          try {
+            const responseBody: unknown = await error.context.json();
+            if (responseBody !== null && typeof responseBody === 'object'
+              && 'error' in responseBody && typeof responseBody.error === 'string') {
+              message = responseBody.error;
+            }
+          } catch {
+            message = error.message;
+          }
+        }
+        throw new Error(message);
+      }
+
+      setCompanyBeingStatusChanged(null);
+      setSuccessMessage(`${company.name} er nu ${status === 'active' ? 'aktiv' : 'inaktiv'}.`);
+      await loadCompanies();
+    } catch (error) {
+      setActionError(`Virksomhedens status kunne ikke ændres: ${error instanceof Error ? error.message : 'Ukendt fejl.'}`);
+    } finally {
+      setChangingCompanyStatusId(null);
+    }
+  }
+
   return (
     <>
       {successMessage && <p className="frigo-admin-notice" role="status">{successMessage}</p>}
@@ -588,9 +681,20 @@ export default function CompanyManagement() {
             <article className="frigo-admin-company-card" key={company.id}>
               <div className="frigo-admin-company-card-header">
                 <h3>{company.name}</h3>
-                <span className={`frigo-admin-status${company.status === 'active' ? '' : ' is-inactive'}`}>
+                <button
+                  className={`frigo-admin-status frigo-admin-status-button${company.status === 'active' ? '' : ' is-inactive'}`}
+                  type="button"
+                  onClick={() => {
+                    setSuccessMessage('');
+                    setActionError('');
+                    setCompanyBeingStatusChanged(company);
+                  }}
+                  disabled={changingCompanyStatusId === company.id}
+                  aria-label={`${company.status === 'active' ? 'Gør' : 'Aktivér'} ${company.name} ${company.status === 'active' ? 'inaktiv' : 'igen'}`}
+                  title={company.status === 'active' ? 'Klik for at gøre virksomheden inaktiv' : 'Klik for at aktivere virksomheden'}
+                >
                   {company.status === 'active' ? 'Aktiv' : 'Inaktiv'}
-                </span>
+                </button>
               </div>
               <div className="frigo-admin-company-departments">
                 {company.departments.length > 0
@@ -672,6 +776,15 @@ export default function CompanyManagement() {
           error={actionError}
           onClose={() => setCompanyBeingDeleted(null)}
           onConfirm={() => void handleCompanyDelete(companyBeingDeleted)}
+        />
+      )}
+      {companyBeingStatusChanged && (
+        <CompanyStatusModal
+          company={companyBeingStatusChanged}
+          isSaving={changingCompanyStatusId === companyBeingStatusChanged.id}
+          error={actionError}
+          onClose={() => setCompanyBeingStatusChanged(null)}
+          onConfirm={() => void handleCompanyStatusChange(companyBeingStatusChanged)}
         />
       )}
     </>

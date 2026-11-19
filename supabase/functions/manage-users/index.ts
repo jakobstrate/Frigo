@@ -531,6 +531,133 @@ Deno.serve(async (request: Request) => {
       return jsonResponse(200, { companyId, status: 'deleted' });
     }
 
+    if (body.action === 'set-company-status') {
+      if (actor.role !== 'super_admin') return jsonResponse(403, { error: 'Only a Superadmin can change a company status.' });
+      const companyId = positiveId(body.companyId);
+      const requestedStatus = body.status;
+      if (companyId === null || (requestedStatus !== 'active' && requestedStatus !== 'inactive')) {
+        return jsonResponse(400, { error: 'Choose a valid company and status.' });
+      }
+
+      const { data: company, error: companyError } = await supabaseAdmin
+        .from('companies')
+        .select('id, status')
+        .eq('id', companyId)
+        .maybeSingle();
+      if (companyError) return jsonResponse(500, { error: `Could not load the company: ${companyError.message}` });
+      if (!company || company.status === 'deleted') {
+        return jsonResponse(404, { error: 'The company does not exist or has already been deleted.' });
+      }
+      if (company.status === requestedStatus) return jsonResponse(200, { companyId, status: requestedStatus });
+
+      const { data: companyProfiles, error: profilesError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, status, invitation_completed')
+        .eq('company_id', companyId)
+        .neq('status', 'deleted');
+      if (profilesError) return jsonResponse(500, { error: `Could not load company users: ${profilesError.message}` });
+
+      const changedProfiles: { id: string; status: string; invitation_completed: boolean }[] = [];
+      const restoreLoginStates = async () => {
+        const rollbackErrors: string[] = [];
+        for (const profile of changedProfiles) {
+          const shouldRemainBanned = profile.status === 'rejected'
+            || (profile.status === 'inactive' && profile.invitation_completed);
+          const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            ban_duration: shouldRemainBanned ? '876000h' : 'none',
+          });
+          if (rollbackError) rollbackErrors.push(rollbackError.message);
+        }
+        return rollbackErrors;
+      };
+
+      if (requestedStatus === 'inactive') {
+        for (const profile of companyProfiles ?? []) {
+          const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            ban_duration: '876000h',
+          });
+          if (banError) {
+            const { data: currentCompany, error: currentCompanyError } = await supabaseAdmin
+              .from('companies')
+              .select('status')
+              .eq('id', companyId)
+              .maybeSingle();
+            const rollbackErrors = !currentCompanyError && currentCompany?.status === 'active'
+              ? await restoreLoginStates()
+              : [];
+            if (currentCompanyError || !currentCompany || currentCompany.status !== 'active') {
+              rollbackErrors.push('Login remains blocked because the company is no longer active or its status could not be verified.');
+            }
+            const rollbackMessage = rollbackErrors.length ? ` Some login rollbacks failed: ${rollbackErrors.join('; ')}` : '';
+            return jsonResponse(500, { error: `Could not block login for every company user: ${banError.message}.${rollbackMessage}` });
+          }
+          changedProfiles.push(profile);
+        }
+      }
+
+      const { data: updatedCompany, error: updateError } = await supabaseAdmin
+        .from('companies')
+        .update({ status: requestedStatus })
+        .eq('id', companyId)
+        .eq('status', company.status)
+        .select('id')
+        .maybeSingle();
+      if (updateError || !updatedCompany) {
+        const { data: currentCompany, error: currentCompanyError } = await supabaseAdmin
+          .from('companies')
+          .select('status')
+          .eq('id', companyId)
+          .maybeSingle();
+        if (!currentCompanyError && currentCompany?.status === requestedStatus) {
+          return jsonResponse(200, { companyId, status: requestedStatus });
+        }
+        const rollbackErrors = requestedStatus === 'inactive'
+          && !currentCompanyError
+          && currentCompany?.status === 'active'
+          ? await restoreLoginStates()
+          : [];
+        if (requestedStatus === 'inactive' && (currentCompanyError || !currentCompany || currentCompany.status !== 'active')) {
+          rollbackErrors.push('Login remains blocked because the company status could not be verified as active.');
+        }
+        const rollbackMessage = rollbackErrors.length ? ` Some login rollbacks failed: ${rollbackErrors.join('; ')}` : '';
+        const errorMessage = updateError?.message ?? 'The company status changed before this update completed.';
+        return jsonResponse(409, { error: `Could not update the company status: ${errorMessage}.${rollbackMessage}` });
+      }
+
+      if (requestedStatus === 'active') {
+        for (const profile of companyProfiles ?? []) {
+          if (profile.status !== 'active' && profile.status !== 'pending'
+            && !(profile.status === 'inactive' && !profile.invitation_completed)) continue;
+          const { error: unbanError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            ban_duration: 'none',
+          });
+          if (unbanError) {
+            const { error: companyRollbackError } = await supabaseAdmin
+              .from('companies')
+              .update({ status: 'inactive' })
+              .eq('id', companyId)
+              .eq('status', 'active');
+            const rebanErrors: string[] = [];
+            for (const reactivatedProfile of changedProfiles) {
+              const { error: rebanError } = await supabaseAdmin.auth.admin.updateUserById(reactivatedProfile.id, {
+                ban_duration: '876000h',
+              });
+              if (rebanError) rebanErrors.push(rebanError.message);
+            }
+            const rollbackErrors = [
+              ...(companyRollbackError ? [`Company status rollback failed: ${companyRollbackError.message}`] : []),
+              ...rebanErrors,
+            ];
+            const rollbackMessage = rollbackErrors.length ? ` Rollback issues: ${rollbackErrors.join('; ')}` : '';
+            return jsonResponse(500, { error: `The company was activated, but login could not be restored for every user: ${unbanError.message}.${rollbackMessage}` });
+          }
+          changedProfiles.push(profile);
+        }
+      }
+
+      return jsonResponse(200, { companyId, status: requestedStatus });
+    }
+
     return jsonResponse(400, { error: 'Unknown user-management action.' });
   } catch (error) {
     return jsonResponse(400, { error: error instanceof Error ? error.message : 'The user could not be managed.' });

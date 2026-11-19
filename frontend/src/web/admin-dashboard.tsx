@@ -116,8 +116,12 @@ function AdminPageContent({
   if (page === 'companies') {
     return <CompanyManagement />;
   }
-  
-   if (page === 'departments') {
+
+  if (page === 'users') {
+    return <UserManagement role={profile.role} companyId={profile.company_id} />;
+  }
+
+  if (page === 'departments') {
     return (
       <DepartmentManagement
         role={profile.role}
@@ -125,10 +129,6 @@ function AdminPageContent({
         companyName={companyName}
       />
     );
-  }
-
-  if (page === 'users') {
-    return <UserManagement role={profile.role} companyId={profile.company_id} />;
   }
 
   if (page === 'products') {

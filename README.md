@@ -29,6 +29,8 @@ For an existing project, apply the updated `supabase/auth_flow.sql` and `supabas
 
 The employee app refreshes products and categories when relevant database changes arrive, when it returns to the foreground, and every 5 seconds while open. Changes to an employee's department also refresh their profile and product access. Realtime publication setup is included in `schema.sql` and `auth_flow.sql`; apply the updated SQL to your Supabase project for immediate change notifications. The periodic refresh also handles changes hidden by employee row-level security.
 
+Superadmins can deactivate or reactivate a company from its status badge. Deactivation blocks login for every company user while retaining their profiles and company data; the `manage-users` Edge Function must be deployed for this action.
+
 When a company has no active administrator, the edit dialog can send an invitation to create its first one.
 
 The edit modal updates the company name, departments, and selected active company administrator. Removing a department can fail if its categories are still referenced by products; move those products first. Changing the administrator email updates the Auth login immediately and confirms the new email as a Superadmin action.
