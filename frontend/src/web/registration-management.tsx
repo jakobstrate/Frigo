@@ -5,7 +5,8 @@ import type { AdminRole } from '@/frontend/src/web/admin-access';
 
 type Company = { id: number; name: string };
 type Department = { id: number; name: string; company_id: number };
-type Purchase = {
+type UserStatus = 'active' | 'inactive' | 'pending' | 'rejected' | 'deleted';
+type PurchaseRecord = {
   id: number;
   purchaser_id: string;
   company_id: number;
@@ -17,12 +18,14 @@ type Purchase = {
   total_price: number;
   created_at: string;
 };
+type Purchase = PurchaseRecord & { purchaser_status: UserStatus | 'unknown' };
 type Period = { id: string; start: Date; end: Date; endExclusive: Date; label: string };
 type EmployeeSummary = {
   id: string;
   name: string;
   company: string;
   department: string;
+  status: UserStatus | 'unknown';
   amount: number;
   total: number;
 };
@@ -124,7 +127,7 @@ function toCsvCell(value: string | number) {
 
 async function loadPurchases(companyIds: number | number[] | null, period: Period) {
   const pageSize = 1000;
-  const purchases: Purchase[] = [];
+  const purchases: PurchaseRecord[] = [];
   if (Array.isArray(companyIds) && companyIds.length === 0) return { data: purchases, error: null };
 
   for (let offset = 0; ; offset += pageSize) {
@@ -253,10 +256,30 @@ export default function RegistrationManagement({
         setDataError(error.message);
         setDepartments([]);
         setPurchases([]);
-      } else {
-        setDepartments(departmentsResult.data ?? []);
-        setPurchases(purchasesResult.data ?? []);
+        setIsLoading(false);
+        return;
       }
+
+      const purchaseRows = purchasesResult.data ?? [];
+      const purchaserIds = [...new Set(purchaseRows.map((purchase) => purchase.purchaser_id))];
+      const profilesResult = purchaserIds.length > 0
+        ? await supabase.from('profiles').select('id, status').in('id', purchaserIds)
+        : { data: [], error: null };
+      if (!isMounted) return;
+      if (profilesResult.error) {
+        setDataError(`Medarbejderstatus kunne ikke indlæses: ${profilesResult.error.message}`);
+        setDepartments([]);
+        setPurchases([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const statusByPurchaserId = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile.status as UserStatus]));
+      setDepartments(departmentsResult.data ?? []);
+      setPurchases(purchaseRows.map((purchase) => ({
+        ...purchase,
+        purchaser_status: statusByPurchaserId.get(purchase.purchaser_id) ?? 'unknown',
+      })));
       setIsLoading(false);
     }
 
@@ -288,6 +311,7 @@ export default function RegistrationManagement({
         name: purchase.purchaser_name,
         company: companyNames.get(purchase.company_id) ?? 'Virksomhed',
         department: purchase.department_name,
+        status: purchase.purchaser_status,
         amount: 0,
         total: 0,
       };
@@ -297,6 +321,19 @@ export default function RegistrationManagement({
     }
     return [...byEmployee.values()].sort((first, second) => first.name.localeCompare(second.name, 'da'));
   }, [companies, visiblePurchases]);
+
+  function getUserStatusLabel(status: UserStatus | 'unknown') {
+    if (status === 'active') return 'Aktiv';
+    if (status === 'inactive') return 'Inaktiv';
+    if (status === 'deleted') return 'Slettet';
+    if (status === 'pending') return 'Afventer';
+    if (status === 'rejected') return 'Afvist';
+    return 'Ukendt';
+  }
+
+  function getUserStatusClass(status: UserStatus | 'unknown') {
+    return `frigo-admin-status${status === 'active' ? '' : ' is-inactive'}${status === 'deleted' ? ' is-deleted' : ''}`;
+  }
 
   const totalSpending = visiblePurchases.reduce((total, purchase) => total + Number(purchase.total_price), 0);
   const totalGoods = visiblePurchases.reduce((total, purchase) => total + purchase.amount, 0);
@@ -431,15 +468,16 @@ export default function RegistrationManagement({
   function exportCsv(exportView: RegistrationView) {
     const headings = exportView === 'employee'
       ? isAllCompanies
-        ? ['Medarbejder', 'Virksomhed', 'Afdeling', 'Antal varer', 'Beløb']
-        : ['Medarbejder', 'Afdeling', 'Antal varer', 'Beløb']
+        ? ['Medarbejder', 'Status', 'Virksomhed', 'Afdeling', 'Antal varer', 'Beløb']
+        : ['Medarbejder', 'Status', 'Afdeling', 'Antal varer', 'Beløb']
       : isAllCompanies
-        ? ['Dato', 'Medarbejder', 'Virksomhed', 'Afdeling', 'Produkt', 'Antal', 'Beløb']
-        : ['Dato', 'Medarbejder', 'Afdeling', 'Produkt', 'Antal', 'Beløb'];
+        ? ['Dato', 'Medarbejder', 'Status', 'Virksomhed', 'Afdeling', 'Produkt', 'Antal', 'Beløb']
+        : ['Dato', 'Medarbejder', 'Status', 'Afdeling', 'Produkt', 'Antal', 'Beløb'];
     const rows = exportView === 'employee'
       ? employeeSummaries.map((employee) => isAllCompanies
         ? [
           employee.name,
+          getUserStatusLabel(employee.status),
           employee.company,
           employee.department,
           employee.amount,
@@ -447,6 +485,7 @@ export default function RegistrationManagement({
         ]
         : [
           employee.name,
+          getUserStatusLabel(employee.status),
           employee.department,
           employee.amount,
           formatCurrency(employee.total),
@@ -455,6 +494,7 @@ export default function RegistrationManagement({
         ...[
           formatDateTime(new Date(purchase.created_at)),
           purchase.purchaser_name,
+          getUserStatusLabel(purchase.purchaser_status),
           ...(isAllCompanies ? [companies.find((company) => company.id === purchase.company_id)?.name ?? 'Virksomhed'] : []),
           purchase.department_name,
           purchase.product_name,
@@ -717,6 +757,7 @@ export default function RegistrationManagement({
               <thead>
                 <tr>
                   <th>Medarbejder</th>
+                  <th>Status</th>
                   {isAllCompanies && <th>Virksomhed</th>}
                   <th>Afdeling</th>
                   <th className="is-numeric">Antal varer</th>
@@ -727,6 +768,7 @@ export default function RegistrationManagement({
                 {employeeSummaries.map((employee) => (
                   <tr key={employee.id}>
                     <th scope="row">{employee.name}</th>
+                    <td><span className={getUserStatusClass(employee.status)}>{getUserStatusLabel(employee.status)}</span></td>
                     {isAllCompanies && <td>{employee.company}</td>}
                     <td>{employee.department}</td>
                     <td className="is-numeric">{employee.amount}</td>
@@ -734,7 +776,7 @@ export default function RegistrationManagement({
                   </tr>
                 ))}
                 <tr className="frigo-admin-registration-total">
-                  <th scope="row" colSpan={isAllCompanies ? 3 : 2}>I alt</th>
+                  <th scope="row" colSpan={isAllCompanies ? 4 : 3}>I alt</th>
                   <td className="is-numeric">{totalGoods}</td>
                   <td className="is-numeric">{formatCurrency(totalSpending)}</td>
                 </tr>
@@ -748,6 +790,7 @@ export default function RegistrationManagement({
                 <tr>
                   <th>Dato</th>
                   <th>Medarbejder</th>
+                  <th>Status</th>
                   {isAllCompanies && <th>Virksomhed</th>}
                   <th>Afdeling</th>
                   <th>Produkt</th>
@@ -760,6 +803,7 @@ export default function RegistrationManagement({
                   <tr key={purchase.id}>
                     <td>{formatDate(new Date(purchase.created_at))}</td>
                     <th scope="row">{purchase.purchaser_name}</th>
+                    <td><span className={getUserStatusClass(purchase.purchaser_status)}>{getUserStatusLabel(purchase.purchaser_status)}</span></td>
                     {isAllCompanies && (
                       <td>{companies.find((company) => company.id === purchase.company_id)?.name ?? 'Virksomhed'}</td>
                     )}

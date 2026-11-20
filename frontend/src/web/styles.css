@@ -633,6 +633,7 @@
 .frigo-admin-registration-table th, .frigo-admin-registration-table td { padding: 13px 10px; border-bottom: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-ink); font-size: 13px; }
 .frigo-admin-registration-table thead th { color: var(--frigo-color-gray); font-weight: 500; }
 .frigo-admin-registration-table tbody th { color: var(--frigo-color-night); font-weight: 650; }
+.frigo-admin-registration-table .frigo-admin-status.is-deleted { color: var(--frigo-color-red); }
 .frigo-admin-registration-table .is-numeric { text-align: right; }
 .frigo-admin-registration-table tbody tr:last-child th, .frigo-admin-registration-table tbody tr:last-child td { border-bottom: 0; }
 .frigo-admin-registration-table .frigo-admin-registration-total th, .frigo-admin-registration-table .frigo-admin-registration-total td { border-top: 1px solid var(--frigo-color-light-blue); color: var(--frigo-color-night); font-weight: 700; }
