@@ -1,10 +1,12 @@
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import {
   CalendarDays,
+  Camera,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -59,6 +61,8 @@ type EmployeeProfile = {
   id: string;
   display_name: string;
   email: string;
+  avatar_path: string | null;
+  avatarUrl: string | null;
   company_id: number;
   department_id: number | null;
   companyName: string;
@@ -172,6 +176,7 @@ export function ProductCatalog() {
   const [registeredItemCount, setRegisteredItemCount] = useState(0);
   const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isSavingProfileImage, setIsSavingProfileImage] = useState(false);
   const cartSwipeWidth = useRef(0);
   const cartSwipeTranslation = useRef(new Animated.Value(0)).current;
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -330,7 +335,7 @@ export function ProductCatalog() {
       try {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, display_name, email, company_id, department_id, status')
+          .select('id, display_name, email, avatar_path, company_id, department_id, status')
           .eq('id', currentScope.id)
           .maybeSingle();
         if (profileError) throw profileError;
@@ -439,7 +444,7 @@ export function ProductCatalog() {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, display_name, email, company_id, department_id, status')
+          .select('id, display_name, email, avatar_path, company_id, department_id, status')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -509,10 +514,19 @@ export function ProductCatalog() {
         }
 
         const categoryById = new Map((categoriesResult.data ?? []).map((category) => [category.id, category.name]));
+        let avatarUrl: string | null = null;
+        if (profile.avatar_path) {
+          const { data: avatarImage } = await supabase.storage
+            .from('profile-images')
+            .createSignedUrl(profile.avatar_path, 3600);
+          avatarUrl = avatarImage?.signedUrl ?? null;
+        }
         setEmployeeProfile({
           id: profile.id,
           display_name: profile.display_name,
           email: profile.email,
+          avatar_path: profile.avatar_path,
+          avatarUrl,
           company_id: profile.company_id,
           department_id: profile.department_id,
           companyName: companyResult.data?.name ?? '',
@@ -754,6 +768,90 @@ export function ProductCatalog() {
     if (!selectedProduct) return;
     updateCart(selectedProduct.id, selectedQuantity);
     setCartAddedMessage(`${selectedQuantity} × ${selectedProduct.name} er lagt i kurven`);
+  }
+
+  async function chooseProfileImage() {
+    if (!employeeProfile || isSavingProfileImage) return;
+
+    setProfileNotice('');
+    setIsSavingProfileImage(true);
+    let uploadedPath: string | null = null;
+    try {
+      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!granted) {
+        setProfileNotice('Giv Frigo adgang til dine billeder for at vælge et profilbillede.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        base64: true,
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      const contentType = asset.mimeType?.toLowerCase();
+      if (!contentType || !['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
+        setProfileNotice('Vælg et profilbillede i JPG-, PNG- eller WEBP-format.');
+        return;
+      }
+      if ((asset.fileSize ?? 0) > 5 * 1024 * 1024 || (asset.base64?.length ?? 0) > 7_000_000) {
+        setProfileNotice('Profilbilledet må højst fylde 5 MB.');
+        return;
+      }
+      if (!asset.base64) {
+        setProfileNotice('Billedet kunne ikke læses. Vælg et andet billede.');
+        return;
+      }
+
+      const binary = atob(asset.base64);
+      const imageBuffer = new ArrayBuffer(binary.length);
+      const imageBytes = new Uint8Array(imageBuffer);
+      for (let index = 0; index < binary.length; index += 1) {
+        imageBytes[index] = binary.charCodeAt(index);
+      }
+      if (imageBuffer.byteLength > 5 * 1024 * 1024) {
+        setProfileNotice('Profilbilledet må højst fylde 5 MB.');
+        return;
+      }
+
+      const extension = contentType === 'image/jpeg' ? 'jpg' : contentType === 'image/png' ? 'png' : 'webp';
+  const uniqueFileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  uploadedPath = `${employeeProfile.company_id}/${employeeProfile.id}/${uniqueFileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(uploadedPath, imageBuffer, { contentType, upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { error: profileError } = await supabase.rpc('update_own_avatar', { p_avatar_path: uploadedPath });
+      if (profileError) throw profileError;
+
+      const previousPath = employeeProfile.avatar_path;
+      setEmployeeProfile((current) => current ? { ...current, avatar_path: uploadedPath, avatarUrl: null } : current);
+      const { data: signedImage, error: signedImageError } = await supabase.storage
+        .from('profile-images')
+        .createSignedUrl(uploadedPath, 3600);
+      setEmployeeProfile((current) => current
+        ? { ...current, avatarUrl: signedImage?.signedUrl ?? null }
+        : current);
+      if (previousPath && previousPath !== uploadedPath) {
+        await supabase.storage.from('profile-images').remove([previousPath]);
+      }
+      uploadedPath = null;
+      setProfileNotice(signedImageError
+        ? 'Profilbilledet er gemt, men kunne ikke vises lige nu.'
+        : 'Profilbilledet er opdateret.');
+    } catch (imageError) {
+      if (uploadedPath) await supabase.storage.from('profile-images').remove([uploadedPath]);
+      setProfileNotice(imageError instanceof Error
+        ? `Profilbilledet kunne ikke gemmes: ${imageError.message}`
+        : 'Profilbilledet kunne ikke gemmes. Prøv igen.');
+    } finally {
+      setIsSavingProfileImage(false);
+    }
   }
 
   async function toggleBiometrics(enabled: boolean) {
@@ -1341,7 +1439,27 @@ export function ProductCatalog() {
             <ScrollView contentContainerStyle={styles.settingsContent} showsVerticalScrollIndicator={false}>
               <View style={styles.profileCard}>
                 <View style={styles.avatarRow}>
-                  <View style={styles.profileAvatar}><UserRound color={colors.blue} size={30} strokeWidth={1.8} /></View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={employeeProfile?.avatar_path ? 'Skift profilbillede' : 'Tilføj profilbillede'}
+                    disabled={isSavingProfileImage}
+                    onPress={() => { void chooseProfileImage(); }}
+                    style={({ pressed }) => [styles.profileAvatar, pressed && styles.pressed]}>
+                    {employeeProfile?.avatarUrl
+                      ? <Image contentFit="cover" source={{ uri: employeeProfile.avatarUrl }} style={styles.profileAvatarImage} />
+                      : <UserRound color={colors.blue} size={30} strokeWidth={1.8} />}
+                    <View style={styles.profilePhotoBadge}>
+                      {isSavingProfileImage
+                        ? <ActivityIndicator color={colors.white} size="small" />
+                        : <Camera color={colors.white} size={13} strokeWidth={2.2} />}
+                    </View>
+                  </Pressable>
+                  <View style={styles.profilePhotoCopy}>
+                    <Text style={styles.accountRowTitle}>Profilbillede</Text>
+                    <Text style={styles.accountRowSubtitle}>
+                      {isSavingProfileImage ? 'Gemmer billede...' : employeeProfile?.avatar_path ? 'Tryk for at ændre' : 'Tryk for at tilføje'}
+                    </Text>
+                  </View>
                 </View>
 
                 <Text style={styles.settingsLabel}>Navn</Text>
@@ -1856,7 +1974,10 @@ const styles = StyleSheet.create({
   settingsContent: { gap: 12, paddingBottom: 16 },
   profileCard: { gap: 11, padding: 16, borderRadius: 20, backgroundColor: colors.white },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 3 },
-  profileAvatar: { width: 62, height: 62, alignItems: 'center', justifyContent: 'center', borderRadius: 31, backgroundColor: '#E2E7FF' },
+  profileAvatar: { width: 62, height: 62, alignItems: 'center', justifyContent: 'center', borderRadius: 31, backgroundColor: '#E2E7FF', overflow: 'hidden' },
+  profileAvatarImage: { width: '100%', height: '100%' },
+  profilePhotoBadge: { position: 'absolute', right: 0, bottom: 0, width: 23, height: 23, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.white, borderRadius: 12, backgroundColor: colors.blue },
+  profilePhotoCopy: { flex: 1, gap: 3 },
   outlineButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: colors.line, borderRadius: 23, backgroundColor: colors.white },
   outlineButtonText: { color: colors.blue, fontSize: 13, fontWeight: '600' },
   settingsLabel: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
