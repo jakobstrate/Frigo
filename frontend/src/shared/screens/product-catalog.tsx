@@ -1188,6 +1188,15 @@ export function ProductCatalog() {
                 style={styles.passwordInput}
                 value={currentPassword}
               />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  router.push('/forgot-password');
+                }}
+                style={styles.passwordForgotButton}>
+                <Text style={styles.passwordForgotText}>Glemt adgangskode?</Text>
+              </Pressable>
 
               <Text style={styles.passwordFieldLabel}>Ny adgangskode</Text>
               <TextInput
@@ -2116,6 +2125,8 @@ const styles = StyleSheet.create({
   passwordFields: { gap: 10 },
   passwordFieldLabel: { color: colors.ink, fontSize: 14, fontWeight: '600', marginTop: 6 },
   passwordInput: { minHeight: 54, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white, color: colors.ink, fontSize: 15 },
+  passwordForgotButton: { minHeight: 38, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: 4 },
+  passwordForgotText: { color: colors.blue, fontSize: 13, fontWeight: '600' },
   passwordInputError: { borderWidth: 1.5, borderColor: '#D20F16' },
   passwordRequirements: { gap: 7, marginTop: 9, marginBottom: 6 },
   passwordRequirementRow: { minHeight: 29, flexDirection: 'row', alignItems: 'center', gap: 10 },
