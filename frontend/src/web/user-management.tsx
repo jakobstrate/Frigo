@@ -50,6 +50,14 @@ function roleLabel(role: UserRole) {
   return role === 'company_admin' ? 'Virksomhedsadmin' : 'Medarbejder';
 }
 
+function normalizeRoles(roles: unknown, fallbackRole: UserRole): UserRole[] {
+  if (!Array.isArray(roles)) return [fallbackRole];
+  const validRoles = roles.filter((role): role is UserRole =>
+    role === 'super_admin' || role === 'company_admin' || role === 'employee',
+  );
+  return validRoles.length > 0 ? validRoles : [fallbackRole];
+}
+
 function statusLabel(status: UserStatus, invitationCompleted = true) {
   if (status === 'deleted') return 'Slettet';
   if (!invitationCompleted) return 'Afventer adgangskode';
@@ -481,7 +489,7 @@ export default function UserManagement({
     setUsers(profileRows.map((profile) => ({
       ...profile,
       role: profile.role as UserRole,
-      roles: profile.roles as UserRole[],
+      roles: normalizeRoles(profile.roles, profile.role as UserRole),
       status: profile.status as UserStatus,
       avatar_url: profile.avatar_path ? imageByPath.get(profile.avatar_path) ?? null : null,
     })));

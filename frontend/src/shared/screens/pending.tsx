@@ -1,11 +1,12 @@
 import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
 import { FrigoLogo } from '@/frontend/src/components/frigo-logo';
+import { LocalizedText as Text } from '@/frontend/src/shared/language';
 
 const webColor = (web: string, native: string) => Platform.OS === 'web' ? web : native;
 const colors = {
@@ -46,7 +47,7 @@ export default function PendingScreen() {
 
       if (!isActive) return;
       if (profileError || requestError || !profile) {
-        setError('We could not load your request status. Please try again shortly.');
+        setError('Vi kunne ikke indlæse status på din anmodning. Prøv igen om lidt.');
         return;
       }
 
@@ -86,15 +87,15 @@ export default function PendingScreen() {
             <View style={[styles.statusMark, declined && styles.declinedMark]}>
               <Text style={styles.statusMarkText}>{declined ? '!' : '…'}</Text>
             </View>
-            <Text style={styles.eyebrow}>{declined ? 'REQUEST DECLINED' : 'REQUEST UNDER REVIEW'}</Text>
-            <Text style={styles.title}>{declined ? 'Your request was declined' : 'Waiting for approval'}</Text>
+            <Text style={styles.eyebrow}>{declined ? 'ANMODNING AFVIST' : 'AFVENTER GODKENDELSE'}</Text>
+            <Text style={styles.title}>{declined ? 'Din anmodning blev afvist' : 'Afventer godkendelse'}</Text>
             <Text style={styles.subtitle}>
               {error || (declined
-                ? request?.declineReason || 'Your company administrator declined your request. Contact them if you think this was a mistake.'
-                : 'You can sign in to check this page while your CompanyAdmin or SuperAdmin reviews your request.')}
+                ? request?.declineReason || 'Din virksomhedsadministrator har afvist din anmodning. Kontakt administratoren, hvis du mener, det er en fejl.'
+                : 'Du kan logge ind og se denne side, mens din virksomhedsadministrator gennemgår din anmodning.')}
             </Text>
             <Pressable accessibilityRole="button" onPress={handleSignOut} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-              <Text style={styles.buttonText}>Sign out</Text>
+              <Text style={styles.buttonText}>Log ud</Text>
             </Pressable>
           </View>
         )}

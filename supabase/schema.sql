@@ -108,6 +108,7 @@ create table public.categories (
   company_id bigint references public.companies(id) on delete cascade,
   department_id bigint,
   name text not null,
+  name_en text,
   copied_from_category_id bigint references public.categories(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -137,7 +138,9 @@ create table public.products (
   company_id bigint references public.companies(id) on delete cascade,
   category_id bigint,
   name text not null,
+  name_en text,
   description text,
+  description_en text,
   unit text not null default '',
   price numeric(10, 2) not null check (price >= 0),
   image_path text not null,
@@ -612,7 +615,7 @@ on public.companies for select to authenticated
 using (public.is_super_admin() or id = public.current_company_id());
 
 create policy "Anyone can view active companies for signup"
-on public.companies for select to anon
+on public.companies for select to anon, authenticated
 using (status = 'active');
 
 create policy "Super admins create companies"
@@ -959,6 +962,15 @@ with check (
   )
 );
 
+drop policy if exists "Users upload own profile images" on storage.objects;
+create policy "Users upload own profile images"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'profile-images'
+  and (storage.foldername(name))[1] = public.current_company_id()::text
+  and (storage.foldername(name))[2] = auth.uid()::text
+);
+
 create policy "Company members view profile images"
 on storage.objects for select to authenticated
 using (
@@ -981,6 +993,53 @@ using (
     )
   )
 );
+
+drop policy if exists "Users delete own profile images" on storage.objects;
+create policy "Users delete own profile images"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'profile-images'
+  and (storage.foldername(name))[1] = public.current_company_id()::text
+  and (storage.foldername(name))[2] = auth.uid()::text
+);
+
+create or replace function public.update_own_avatar(p_avatar_path text)
+returns void
+language plpgsql
+security definer
+set search_path = public, storage
+as $$
+declare
+  own_company_id bigint;
+begin
+  select company_id into own_company_id
+  from public.profiles
+  where id = auth.uid() and status = 'active';
+
+  if not found or own_company_id is null then
+    raise exception 'An active company profile is required to update a profile image.';
+  end if;
+
+  if p_avatar_path is not null and (
+    array_length(storage.foldername(p_avatar_path), 1) <> 2
+    or (storage.foldername(p_avatar_path))[1] is distinct from own_company_id::text
+    or (storage.foldername(p_avatar_path))[2] is distinct from auth.uid()::text
+    or not exists (
+      select 1 from storage.objects
+      where bucket_id = 'profile-images' and name = p_avatar_path
+    )
+  ) then
+    raise exception 'Profile images must be uploaded to your own profile folder.';
+  end if;
+
+  update public.profiles
+  set avatar_path = p_avatar_path
+  where id = auth.uid() and status = 'active';
+end;
+$$;
+
+revoke all on function public.update_own_avatar(text) from public, anon;
+grant execute on function public.update_own_avatar(text) to authenticated;
 
 do $$
 declare

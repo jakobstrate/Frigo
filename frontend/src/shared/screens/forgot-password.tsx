@@ -3,10 +3,11 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Check, ChevronLeft, Mail } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from '@/frontend/src/shared/language';
 
 const colors = {
   background: '#EDF2F6',

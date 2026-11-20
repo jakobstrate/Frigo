@@ -46,9 +46,18 @@
           "faceIDPermission": "Frigo bruger Face ID til at bekræfte, at det er dig."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Frigo bruger dine billeder, når du vælger et profilbillede.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store",
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

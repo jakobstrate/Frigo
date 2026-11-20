@@ -1,35 +1,39 @@
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import {
-  CalendarDays,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  CupSoda,
-  Heart,
-  KeyRound,
-  LayoutGrid,
-  LogOut,
-  Minus,
-  Plus,
-  Search,
-  ShoppingBag,
-  SlidersHorizontal,
-  Trash2,
-  UserRound,
-  X,
+    CalendarDays,
+    Camera,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clock3,
+    CupSoda,
+    Globe2,
+    Heart,
+    KeyRound,
+    LayoutGrid,
+    LogOut,
+    Minus,
+    Plus,
+    Search,
+    ShoppingBag,
+    SlidersHorizontal,
+    Trash2,
+    UserRound,
+    X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, AppState, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
 import { biometricCredentialsKey, biometricCredentialsOptions, biometricCredentialsReadyKey, biometricSetupKey } from '@/frontend/src/constants/biometrics';
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useAppLanguage } from '@/frontend/src/shared/language';
 
 const webColor = (web: string, native: string) => Platform.OS === 'web' ? web : native;
 
@@ -47,18 +51,25 @@ const colors = {
 type Product = {
   id: number;
   name: string;
+  nameEn?: string | null;
   size: string;
   price: number;
   category: string;
+  categoryEn?: string | null;
   color: string;
   description: string;
+  descriptionEn?: string | null;
   imageUrl: string | null;
 };
+
+type CatalogCategory = { id: number | 'all'; name: string; name_en: string | null };
 
 type EmployeeProfile = {
   id: string;
   display_name: string;
   email: string;
+  avatar_path: string | null;
+  avatarUrl: string | null;
   company_id: number;
   department_id: number | null;
   companyName: string;
@@ -67,6 +78,7 @@ type EmployeeProfile = {
 
 type PurchaseHistoryItem = {
   id: number;
+  product_id: number;
   product_name: string;
   amount: number;
   unit_price: number;
@@ -80,6 +92,34 @@ const categoryWidths: Record<string, number> = {
   Alle: 76,
 };
 
+function categoryOptions(rows: Array<{ id: number; name: string; name_en: string | null }>): CatalogCategory[] {
+  const unique = new Map<string, CatalogCategory>();
+  for (const row of rows) {
+    if (!unique.has(row.name)) unique.set(row.name, { id: row.id, name: row.name, name_en: row.name_en });
+  }
+  return [{ id: 'all', name: 'Alle', name_en: 'All' }, ...unique.values()];
+}
+
+function productName(product: Product, language: 'da' | 'en') {
+  return language === 'en' && product.nameEn?.trim() ? product.nameEn : product.name;
+}
+
+function productDescription(product: Product, language: 'da' | 'en') {
+  return language === 'en' && product.descriptionEn?.trim() ? product.descriptionEn : product.description;
+}
+
+function productCategory(product: Product, language: 'da' | 'en') {
+  return language === 'en' && product.categoryEn?.trim() ? product.categoryEn : product.category;
+}
+
+function formatProductPrice(price: number, language: 'da' | 'en') {
+  return `${price} ${language === 'en' ? 'DKK' : 'kr'}`;
+}
+
+function itemCountLabel(count: number, language: 'da' | 'en') {
+  return `${count} ${language === 'en' ? (count === 1 ? 'item' : 'items') : (count === 1 ? 'vare' : 'varer')}`;
+}
+
 const productColors = ['#E1E9FF', '#FCE4E1', '#E2F3E5', '#FFF0D7', '#DFF1F7', '#EFE6F8'];
 
 function getPurchasePeriodStart(date: Date) {
@@ -88,15 +128,15 @@ function getPurchasePeriodStart(date: Date) {
     : new Date(date.getFullYear(), date.getMonth() - 1, 21);
 }
 
-function formatDayAndMonth(date: Date) {
-  return date.toLocaleDateString('da-DK', { day: 'numeric', month: 'short' }).replace(/\./g, '');
+function formatDayAndMonth(date: Date, locale = 'da-DK') {
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' }).replace(/\./g, '');
 }
 
-function formatPurchasePeriod(start: Date, end: Date) {
+function formatPurchasePeriod(start: Date, end: Date, locale = 'da-DK') {
   if (start.getFullYear() !== end.getFullYear()) {
-    return `${formatDayAndMonth(start)} ${start.getFullYear()} – ${formatDayAndMonth(end)} ${end.getFullYear()}`;
+    return `${formatDayAndMonth(start, locale)} ${start.getFullYear()} – ${formatDayAndMonth(end, locale)} ${end.getFullYear()}`;
   }
-  return `${formatDayAndMonth(start)} – ${formatDayAndMonth(end)} ${end.getFullYear()}`;
+  return `${formatDayAndMonth(start, locale)} – ${formatDayAndMonth(end, locale)} ${end.getFullYear()}`;
 }
 
 function normalizeDate(date: Date) {
@@ -107,13 +147,13 @@ function shiftCalendarMonth(date: Date, offset: number) {
   return new Date(date.getFullYear(), date.getMonth() + offset, 1);
 }
 
-function formatCalendarMonth(date: Date) {
-  const label = date.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+function formatCalendarMonth(date: Date, locale = 'da-DK') {
+  const label = date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function formatPickerDate(date: Date) {
-  return date.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '');
+function formatPickerDate(date: Date, locale = 'da-DK') {
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '');
 }
 
 function getCalendarWeeks(month: Date) {
@@ -132,18 +172,20 @@ function getPurchaseDayKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function formatPurchaseDay(date: Date) {
-  const label = date.toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'short' }).replace(/\./g, '');
+function formatPurchaseDay(date: Date, locale = 'da-DK') {
+  const label = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'short' }).replace(/\./g, '');
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function ProductCatalog() {
   const safeAreaInsets = useSafeAreaInsets();
+  const { language, setLanguage } = useAppLanguage();
+  const dateLocale = language === 'en' ? 'en-GB' : 'da-DK';
   const [activeTab, setActiveTab] = useState<CatalogTab>('products');
   const [activeCategory, setActiveCategory] = useState('Alle');
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>(['Alle']);
+  const [categories, setCategories] = useState<CatalogCategory[]>(categoryOptions([]));
   const [favorites, setFavorites] = useState<number[]>([]);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
   const [historyPeriodStart, setHistoryPeriodStart] = useState(() => getPurchasePeriodStart(new Date()));
@@ -172,6 +214,7 @@ export function ProductCatalog() {
   const [registeredItemCount, setRegisteredItemCount] = useState(0);
   const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isSavingProfileImage, setIsSavingProfileImage] = useState(false);
   const cartSwipeWidth = useRef(0);
   const cartSwipeTranslation = useRef(new Animated.Value(0)).current;
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -238,7 +281,7 @@ export function ProductCatalog() {
       try {
         const categoriesQuery = supabase
           .from('categories')
-          .select('id, name, department_id')
+          .select('id, name, name_en, department_id')
           .or(`company_id.is.null,company_id.eq.${scope.company_id}`)
           .eq('active', true);
         const visibleCategoriesQuery = scope.department_id === null
@@ -248,7 +291,7 @@ export function ProductCatalog() {
           visibleCategoriesQuery.order('name'),
           supabase
             .from('products')
-            .select('id, name, description, unit, price, image_path, category_id')
+            .select('id, name, name_en, description, description_en, unit, price, image_path, category_id')
             .eq('active', true)
             .order('name'),
         ]);
@@ -276,16 +319,19 @@ export function ProductCatalog() {
           refreshQueued = true;
           return;
         }
-        const categoryById = new Map((categoriesResult.data ?? []).map((category) => [category.id, category.name]));
-        setCategories(['Alle', ...new Set((categoriesResult.data ?? []).map((category) => category.name))]);
+        const categoryById = new Map((categoriesResult.data ?? []).map((category) => [category.id, category]));
+        setCategories(categoryOptions(categoriesResult.data ?? []));
         setProducts(productRows.map((product, index) => ({
           id: product.id,
           name: product.name,
+          nameEn: product.name_en,
           size: product.unit,
           price: Number(product.price),
-          category: categoryById.get(product.category_id) ?? 'Øvrigt',
+          category: categoryById.get(product.category_id)?.name ?? 'Øvrigt',
+          categoryEn: categoryById.get(product.category_id)?.name_en ?? null,
           color: productColors[index % productColors.length],
           description: product.description ?? '',
+          descriptionEn: product.description_en,
           imageUrl: imageByPath.get(product.image_path) ?? null,
         })));
         if (imageLoadFailed) {
@@ -330,7 +376,7 @@ export function ProductCatalog() {
       try {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, display_name, email, company_id, department_id, status')
+          .select('id, display_name, email, avatar_path, company_id, department_id, status')
           .eq('id', currentScope.id)
           .maybeSingle();
         if (profileError) throw profileError;
@@ -439,7 +485,7 @@ export function ProductCatalog() {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, display_name, email, company_id, department_id, status')
+          .select('id, display_name, email, avatar_path, company_id, department_id, status')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -450,7 +496,7 @@ export function ProductCatalog() {
 
         const categoriesQuery = supabase
           .from('categories')
-          .select('id, name, department_id')
+          .select('id, name, name_en, department_id')
           .or(`company_id.is.null,company_id.eq.${profile.company_id}`)
           .eq('active', true);
         const visibleCategoriesQuery = profile.department_id === null
@@ -465,7 +511,7 @@ export function ProductCatalog() {
           visibleCategoriesQuery.order('name'),
           supabase
             .from('products')
-            .select('id, name, description, unit, price, image_path, category_id')
+            .select('id, name, name_en, description, description_en, unit, price, image_path, category_id')
             .eq('active', true)
             .order('name'),
           profile.department_id !== null
@@ -478,7 +524,7 @@ export function ProductCatalog() {
           supabase.from('favorites').select('product_id').eq('user_id', user.id),
           supabase
             .from('purchases')
-            .select('id, product_name, amount, unit_price, total_price, created_at')
+            .select('id, product_id, product_name, amount, unit_price, total_price, created_at')
             .eq('purchaser_id', user.id)
             .order('created_at', { ascending: false })
             .limit(500),
@@ -508,11 +554,20 @@ export function ProductCatalog() {
           }
         }
 
-        const categoryById = new Map((categoriesResult.data ?? []).map((category) => [category.id, category.name]));
+        const categoryById = new Map((categoriesResult.data ?? []).map((category) => [category.id, category]));
+        let avatarUrl: string | null = null;
+        if (profile.avatar_path) {
+          const { data: avatarImage } = await supabase.storage
+            .from('profile-images')
+            .createSignedUrl(profile.avatar_path, 3600);
+          avatarUrl = avatarImage?.signedUrl ?? null;
+        }
         setEmployeeProfile({
           id: profile.id,
           display_name: profile.display_name,
           email: profile.email,
+          avatar_path: profile.avatar_path,
+          avatarUrl,
           company_id: profile.company_id,
           department_id: profile.department_id,
           companyName: companyResult.data?.name ?? '',
@@ -521,15 +576,18 @@ export function ProductCatalog() {
             : departmentResult.data?.name ?? '',
         });
         startCatalogUpdates(profile);
-        setCategories(['Alle', ...new Set((categoriesResult.data ?? []).map((category) => category.name))]);
+        setCategories(categoryOptions(categoriesResult.data ?? []));
         setProducts(productRows.map((product, index) => ({
           id: product.id,
           name: product.name,
+          nameEn: product.name_en,
           size: product.unit,
           price: Number(product.price),
-          category: categoryById.get(product.category_id) ?? 'Øvrigt',
+          category: categoryById.get(product.category_id)?.name ?? 'Øvrigt',
+          categoryEn: categoryById.get(product.category_id)?.name_en ?? null,
           color: productColors[index % productColors.length],
           description: product.description ?? '',
+          descriptionEn: product.description_en,
           imageUrl: imageByPath.get(product.image_path) ?? null,
         })));
         setFavorites(favoritesResult.error ? [] : (favoritesResult.data ?? []).map((favorite) => favorite.product_id));
@@ -581,7 +639,9 @@ export function ProductCatalog() {
   const shownProducts = useMemo(() => products.filter((product) => {
     const matchesTab = activeTab !== 'favorites' || favorites.includes(product.id);
     const matchesCategory = activeTab !== 'products' || activeCategory === 'Alle' || product.category === activeCategory;
-    const matchesSearch = product.name.toLowerCase().includes(search.trim().toLowerCase());
+    const normalizedSearch = search.trim().toLowerCase();
+    const matchesSearch = product.name.toLowerCase().includes(normalizedSearch)
+      || (product.nameEn ?? '').toLowerCase().includes(normalizedSearch);
     return matchesTab && matchesCategory && matchesSearch;
   }), [activeCategory, activeTab, favorites, products, search]);
 
@@ -722,7 +782,7 @@ export function ProductCatalog() {
 
       if (Platform.OS === 'web') {
         setCart({});
-        setCartNotice(`Registrering gennemført for ${itemCount} varer.`);
+        setCartNotice(`Registrering gennemført for ${itemCountLabel(itemCount, 'da').replace(/^\d+ /, '')}.`);
       } else {
         setRegisteredItemCount(itemCount);
         setShowRegistrationSuccess(true);
@@ -730,7 +790,7 @@ export function ProductCatalog() {
       setCartRegistrationSucceeded(true);
       const { data: history, error: historyError } = await supabase
         .from('purchases')
-        .select('id, product_name, amount, unit_price, total_price, created_at')
+        .select('id, product_id, product_name, amount, unit_price, total_price, created_at')
         .eq('purchaser_id', employeeProfile.id)
         .order('created_at', { ascending: false })
         .limit(30);
@@ -753,7 +813,91 @@ export function ProductCatalog() {
   function addSelectedProductToCart() {
     if (!selectedProduct) return;
     updateCart(selectedProduct.id, selectedQuantity);
-    setCartAddedMessage(`${selectedQuantity} × ${selectedProduct.name} er lagt i kurven`);
+    setCartAddedMessage(`${selectedQuantity} × ${productName(selectedProduct, language)} er lagt i kurven`);
+  }
+
+  async function chooseProfileImage() {
+    if (!employeeProfile || isSavingProfileImage) return;
+
+    setProfileNotice('');
+    setIsSavingProfileImage(true);
+    let uploadedPath: string | null = null;
+    try {
+      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!granted) {
+        setProfileNotice('Giv Frigo adgang til dine billeder for at vælge et profilbillede.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        base64: true,
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      const contentType = asset.mimeType?.toLowerCase();
+      if (!contentType || !['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
+        setProfileNotice('Vælg et profilbillede i JPG-, PNG- eller WEBP-format.');
+        return;
+      }
+      if ((asset.fileSize ?? 0) > 5 * 1024 * 1024 || (asset.base64?.length ?? 0) > 7_000_000) {
+        setProfileNotice('Profilbilledet må højst fylde 5 MB.');
+        return;
+      }
+      if (!asset.base64) {
+        setProfileNotice('Billedet kunne ikke læses. Vælg et andet billede.');
+        return;
+      }
+
+      const binary = atob(asset.base64);
+      const imageBuffer = new ArrayBuffer(binary.length);
+      const imageBytes = new Uint8Array(imageBuffer);
+      for (let index = 0; index < binary.length; index += 1) {
+        imageBytes[index] = binary.charCodeAt(index);
+      }
+      if (imageBuffer.byteLength > 5 * 1024 * 1024) {
+        setProfileNotice('Profilbilledet må højst fylde 5 MB.');
+        return;
+      }
+
+      const extension = contentType === 'image/jpeg' ? 'jpg' : contentType === 'image/png' ? 'png' : 'webp';
+  const uniqueFileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  uploadedPath = `${employeeProfile.company_id}/${employeeProfile.id}/${uniqueFileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(uploadedPath, imageBuffer, { contentType, upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { error: profileError } = await supabase.rpc('update_own_avatar', { p_avatar_path: uploadedPath });
+      if (profileError) throw profileError;
+
+      const previousPath = employeeProfile.avatar_path;
+      setEmployeeProfile((current) => current ? { ...current, avatar_path: uploadedPath, avatarUrl: null } : current);
+      const { data: signedImage, error: signedImageError } = await supabase.storage
+        .from('profile-images')
+        .createSignedUrl(uploadedPath, 3600);
+      setEmployeeProfile((current) => current
+        ? { ...current, avatarUrl: signedImage?.signedUrl ?? null }
+        : current);
+      if (previousPath && previousPath !== uploadedPath) {
+        await supabase.storage.from('profile-images').remove([previousPath]);
+      }
+      uploadedPath = null;
+      setProfileNotice(signedImageError
+        ? 'Profilbilledet er gemt, men kunne ikke vises lige nu.'
+        : 'Profilbilledet er opdateret.');
+    } catch (imageError) {
+      if (uploadedPath) await supabase.storage.from('profile-images').remove([uploadedPath]);
+      setProfileNotice(imageError instanceof Error
+        ? `Profilbilledet kunne ikke gemmes: ${imageError.message}`
+        : 'Profilbilledet kunne ikke gemmes. Prøv igen.');
+    } finally {
+      setIsSavingProfileImage(false);
+    }
   }
 
   async function toggleBiometrics(enabled: boolean) {
@@ -923,7 +1067,7 @@ export function ProductCatalog() {
 
           <View style={styles.cartTitleRow}>
             <Text style={styles.cartPageTitle}>Kurv</Text>
-            {cartCount > 0 && <Text style={styles.cartCountLabel}>{cartCount} varer</Text>}
+            {cartCount > 0 && <Text style={styles.cartCountLabel}>{itemCountLabel(cartCount, language)}</Text>}
           </View>
 
           {cartItems.length === 0 ? (
@@ -949,8 +1093,8 @@ export function ProductCatalog() {
                           : <CupSoda color="#142A8F" size={23} strokeWidth={1.8} />}
                       </View>
                       <View style={styles.cartPageProductInfo}>
-                        <Text numberOfLines={1} style={styles.productName}>{product.name}</Text>
-                        <Text style={styles.productDetails}>{product.price} kr pr. stk.</Text>
+                        <Text numberOfLines={1} style={styles.productName}>{productName(product, language)}</Text>
+                        <Text style={styles.productDetails}>{formatProductPrice(product.price, language)} {language === 'en' ? 'each' : 'pr. stk.'}</Text>
                       </View>
                       <Pressable accessibilityRole="button" accessibilityLabel={cart[product.id] > 1 ? `Fjern én ${product.name}` : `Fjern ${product.name} fra kurven`} onPress={() => updateCart(product.id, -1)} style={styles.cartQuantityButton}>
                         {cart[product.id] > 1 ? <Minus color={colors.ink} size={17} /> : <Trash2 color="#C52C29" size={17} />}
@@ -959,12 +1103,12 @@ export function ProductCatalog() {
                       <Pressable accessibilityRole="button" accessibilityLabel={`Tilføj én ${product.name}`} onPress={() => updateCart(product.id, 1)} style={styles.cartPlusButton}>
                         <Plus color={colors.white} size={18} strokeWidth={2.2} />
                       </Pressable>
-                      <Text style={styles.cartPageLineTotal}>{product.price * cart[product.id]} kr</Text>
+                      <Text style={styles.cartPageLineTotal}>{formatProductPrice(product.price * cart[product.id], language)}</Text>
                     </View>
                   ))}
                   <View style={styles.cartPageTotalRow}>
                     <Text style={styles.cartPageTotalLabel}>I alt</Text>
-                    <Text style={styles.cartPageTotalPrice}>{cartTotal} kr</Text>
+                    <Text style={styles.cartPageTotalPrice}>{formatProductPrice(cartTotal, language)}</Text>
                   </View>
                 </View>
               </ScrollView>
@@ -1044,6 +1188,15 @@ export function ProductCatalog() {
                 style={styles.passwordInput}
                 value={currentPassword}
               />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  router.push('/forgot-password');
+                }}
+                style={styles.passwordForgotButton}>
+                <Text style={styles.passwordForgotText}>Glemt adgangskode?</Text>
+              </Pressable>
 
               <Text style={styles.passwordFieldLabel}>Ny adgangskode</Text>
               <TextInput
@@ -1101,20 +1254,20 @@ export function ProductCatalog() {
             </Pressable>
           </View>
           <Text style={styles.historyDetailTitle}>Registreringer</Text>
-          <Text style={styles.historyDetailSubtitle}>{formatPurchasePeriod(historyPeriodStart, historyPeriodEnd)} · {historyRegistrationCount} registreringer</Text>
+          <Text style={styles.historyDetailSubtitle}>{formatPurchasePeriod(historyPeriodStart, historyPeriodEnd, dateLocale)} · {historyRegistrationCount} {language === 'en' ? 'purchases' : 'registreringer'}</Text>
 
           <ScrollView style={styles.historyDetailScroll} contentContainerStyle={styles.historyDetailList} showsVerticalScrollIndicator={false}>
             {groupedHistory.map((day) => {
               const dayTotal = day.purchases.reduce((total, item) => total + Number(item.total_price), 0);
               const latestPurchase = day.purchases[0];
               const timeLabel = latestPurchase
-                ? new Date(latestPurchase.created_at).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' })
+                ? new Date(latestPurchase.created_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
                 : '';
               return (
                 <View key={getPurchaseDayKey(day.date)} style={styles.historyDetailCard}>
                   <View style={styles.historyDetailDayHeader}>
-                    <Text style={styles.historyDetailDayTitle}>{formatPurchaseDay(day.date)} · {timeLabel}</Text>
-                    <Text style={styles.historyDetailDayTotal}>{dayTotal.toFixed(0)} kr</Text>
+                    <Text style={styles.historyDetailDayTitle}>{formatPurchaseDay(day.date, dateLocale)} · {timeLabel}</Text>
+                    <Text style={styles.historyDetailDayTotal}>{formatProductPrice(dayTotal, language)}</Text>
                   </View>
                   {day.purchases.map((item) => {
                     const product = products.find((candidate) => candidate.name === item.product_name);
@@ -1126,10 +1279,10 @@ export function ProductCatalog() {
                               : <CupSoda color="#142A8F" size={21} strokeWidth={1.8} />}
                         </View>
                         <View style={styles.historyProductInfo}>
-                          <Text numberOfLines={1} style={styles.historyDetailProductName}>{item.product_name}</Text>
-                          <Text style={styles.productDetails}>{item.amount} × {Number(item.unit_price).toFixed(0)} kr</Text>
+                          <Text numberOfLines={1} style={styles.historyDetailProductName}>{product ? productName(product, language) : item.product_name}</Text>
+                          <Text style={styles.productDetails}>{item.amount} × {formatProductPrice(Number(item.unit_price), language)}</Text>
                         </View>
-                        <Text style={styles.historyDetailPurchaseTotal}>{Number(item.total_price).toFixed(0)} kr</Text>
+                        <Text style={styles.historyDetailPurchaseTotal}>{formatProductPrice(Number(item.total_price), language)}</Text>
                       </View>
                     );
                   })}
@@ -1219,12 +1372,14 @@ export function ProductCatalog() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
                   {categories.map((category) => (
                     <Pressable
-                      key={category}
+                      key={category.id}
                       accessibilityRole="button"
-                      accessibilityState={{ selected: activeCategory === category }}
-                      onPress={() => setActiveCategory(category)}
-                      style={[styles.categoryChip, { width: categoryWidths[category] ?? 100 }, activeCategory === category && styles.categoryChipActive]}>
-                      <Text numberOfLines={1} style={[styles.categoryText, activeCategory === category && styles.categoryTextActive]}>{category}</Text>
+                      accessibilityState={{ selected: activeCategory === category.name }}
+                      onPress={() => setActiveCategory(category.name)}
+                      style={[styles.categoryChip, { width: categoryWidths[category.name] ?? 100 }, activeCategory === category.name && styles.categoryChipActive]}>
+                      <Text numberOfLines={1} style={[styles.categoryText, activeCategory === category.name && styles.categoryTextActive]}>
+                        {language === 'en' && category.name_en?.trim() ? category.name_en : category.name}
+                      </Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -1241,8 +1396,8 @@ export function ProductCatalog() {
                             : <CupSoda color="#142A8F" size={27} strokeWidth={1.8} />}
                         </View>
                         <View style={styles.productInfo}>
-                          <Text numberOfLines={1} style={styles.productName}>{product.name}</Text>
-                          <Text style={styles.productDetails}>{product.size} · {product.price} kr</Text>
+                          <Text numberOfLines={1} style={styles.productName}>{productName(product, language)}</Text>
+                          <Text style={styles.productDetails}>{product.size} · {formatProductPrice(product.price, language)}</Text>
                         </View>
                         <ChevronRight color={colors.muted} size={21} />
                       </Pressable>
@@ -1286,7 +1441,7 @@ export function ProductCatalog() {
                   <CalendarDays color={colors.blue} size={24} strokeWidth={2} />
                   <View style={styles.historyPeriodCopy}>
                     <Text style={styles.historyPeriodLabel}>Periode</Text>
-                    <Text style={styles.historyPeriodValue}>{formatPurchasePeriod(historyPeriodStart, historyPeriodEnd)}</Text>
+                    <Text style={styles.historyPeriodValue}>{formatPurchasePeriod(historyPeriodStart, historyPeriodEnd, dateLocale)}</Text>
                   </View>
                   <Pressable accessibilityRole="button" onPress={openHistoryPeriodPicker} style={styles.historyPeriodChangeButton}>
                     <Text style={styles.historyPeriodChangeText}>Skift</Text>
@@ -1295,11 +1450,11 @@ export function ProductCatalog() {
                 <View style={styles.historySummaryBody}>
                   <View>
                     <Text style={styles.historySummaryLabel}>I alt i perioden</Text>
-                    <Text style={styles.historySummaryAmount}>{historyPeriodTotal.toFixed(0)} kr</Text>
+                    <Text style={styles.historySummaryAmount}>{formatProductPrice(historyPeriodTotal, language)}</Text>
                   </View>
                   <View style={styles.historySummaryCount}>
                     <Text style={styles.historySummaryLabel}>Varer</Text>
-                    <Text style={styles.historySummaryCountValue}>{historyPeriodItemCount}</Text>
+                    <Text style={styles.historySummaryCountValue}>{itemCountLabel(historyPeriodItemCount, language)}</Text>
                   </View>
                 </View>
                 <Pressable accessibilityRole="button" onPress={() => setShowHistoryDetails(true)} style={styles.historySummaryLink}>
@@ -1312,9 +1467,9 @@ export function ProductCatalog() {
               <View style={styles.historyListCard}>
                 {groupedHistory.map((day, dayIndex) => (
                   <View key={getPurchaseDayKey(day.date)} style={[styles.historyDayGroup, dayIndex < groupedHistory.length - 1 && styles.historyDayDivider]}>
-                    <Text style={styles.historyDayTitle}>{formatPurchaseDay(day.date)}</Text>
+                    <Text style={styles.historyDayTitle}>{formatPurchaseDay(day.date, dateLocale)}</Text>
                     {day.purchases.map((item) => {
-                      const product = products.find((candidate) => candidate.name === item.product_name);
+                      const product = products.find((candidate) => candidate.id === item.product_id);
                       return (
                         <View key={item.id} style={styles.historyRow}>
                           <View style={[styles.historyIcon, { backgroundColor: product?.color ?? '#E5E9FF' }]}>
@@ -1323,10 +1478,10 @@ export function ProductCatalog() {
                               : <CupSoda color="#142A8F" size={21} strokeWidth={1.8} />}
                           </View>
                           <View style={styles.historyProductInfo}>
-                            <Text numberOfLines={1} style={styles.productName}>{item.product_name}</Text>
-                            <Text style={styles.productDetails}>{item.amount} × {Number(item.unit_price).toFixed(0)} kr</Text>
+                            <Text numberOfLines={1} style={styles.productName}>{product ? productName(product, language) : item.product_name}</Text>
+                            <Text style={styles.productDetails}>{item.amount} × {formatProductPrice(Number(item.unit_price), language)}</Text>
                           </View>
-                          <Text style={styles.historyPurchaseTotal}>{Number(item.total_price).toFixed(0)} kr</Text>
+                          <Text style={styles.historyPurchaseTotal}>{formatProductPrice(Number(item.total_price), language)}</Text>
                         </View>
                       );
                     })}
@@ -1341,7 +1496,27 @@ export function ProductCatalog() {
             <ScrollView contentContainerStyle={styles.settingsContent} showsVerticalScrollIndicator={false}>
               <View style={styles.profileCard}>
                 <View style={styles.avatarRow}>
-                  <View style={styles.profileAvatar}><UserRound color={colors.blue} size={30} strokeWidth={1.8} /></View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={employeeProfile?.avatar_path ? 'Skift profilbillede' : 'Tilføj profilbillede'}
+                    disabled={isSavingProfileImage}
+                    onPress={() => { void chooseProfileImage(); }}
+                    style={({ pressed }) => [styles.profileAvatar, pressed && styles.pressed]}>
+                    {employeeProfile?.avatarUrl
+                      ? <Image contentFit="cover" source={{ uri: employeeProfile.avatarUrl }} style={styles.profileAvatarImage} />
+                      : <UserRound color={colors.blue} size={30} strokeWidth={1.8} />}
+                    <View style={styles.profilePhotoBadge}>
+                      {isSavingProfileImage
+                        ? <ActivityIndicator color={colors.white} size="small" />
+                        : <Camera color={colors.white} size={13} strokeWidth={2.2} />}
+                    </View>
+                  </Pressable>
+                  <View style={styles.profilePhotoCopy}>
+                    <Text style={styles.accountRowTitle}>Profilbillede</Text>
+                    <Text style={styles.accountRowSubtitle}>
+                      {isSavingProfileImage ? 'Gemmer billede...' : employeeProfile?.avatar_path ? 'Tryk for at ændre' : 'Tryk for at tilføje'}
+                    </Text>
+                  </View>
                 </View>
 
                 <Text style={styles.settingsLabel}>Navn</Text>
@@ -1378,17 +1553,43 @@ export function ProductCatalog() {
               </View>
 
               <View style={styles.accountCard}>
+                <View style={styles.languageSettingRow}>
+                  <View style={styles.accountRowIcon}>
+                    <Globe2 color={colors.ink} size={20} />
+                  </View>
+                  <View style={styles.biometricSettingCopy}>
+                    <Text style={styles.accountRowTitle}>Sprog</Text>
+                    <Text style={styles.accountRowSubtitle}>Vælg appens sprog</Text>
+                  </View>
+                  <View style={styles.languageToggle}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: language === 'da' }}
+                      onPress={() => { void setLanguage('da'); }}
+                      style={[styles.languageOption, language === 'da' && styles.languageOptionSelected]}>
+                      <Text style={[styles.languageOptionText, language === 'da' && styles.languageOptionTextSelected]}>Dansk</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: language === 'en' }}
+                      onPress={() => { void setLanguage('en'); }}
+                      style={[styles.languageOption, language === 'en' && styles.languageOptionSelected]}>
+                      <Text style={[styles.languageOptionText, language === 'en' && styles.languageOptionTextSelected]}>English</Text>
+                    </Pressable>
+                  </View>
+                </View>
                 <View style={styles.biometricSettingRow}>
                   <View style={styles.accountRowIcon}>
                     <KeyRound color={colors.ink} size={20} />
                   </View>
                   <View style={styles.biometricSettingCopy}>
-                    <Text style={styles.accountRowTitle}>Log ind med Face ID</Text>
+                    <Text style={styles.accountRowTitle}>Biometrisk login</Text>
                     <Text style={styles.accountRowSubtitle}>{biometricEnabled ? 'Til. Bruges næste gang du logger ind.' : 'Fra. Brug adgangskode til login.'}</Text>
                   </View>
                   <Switch
-                    accessibilityLabel="Log ind med Face ID"
+                    accessibilityLabel="Biometrisk login"
                     onValueChange={(enabled) => { void toggleBiometrics(enabled); }}
+                    style={styles.biometricSwitch}
                     thumbColor={colors.white}
                     trackColor={{ false: '#C8D0DB', true: colors.blue }}
                     value={biometricEnabled}
@@ -1428,7 +1629,7 @@ export function ProductCatalog() {
             style={({ pressed }) => [styles.cartBar, pressed && styles.pressed]}>
             <View style={styles.cartBarCopy}>
               <Text style={styles.cartBarTitle}>Gå til kurv</Text>
-              <Text style={styles.cartBarSubtitle}>{cartCount} varer · {cartTotal} kr</Text>
+              <Text style={styles.cartBarSubtitle}>{itemCountLabel(cartCount, language)} · {formatProductPrice(cartTotal, language)}</Text>
             </View>
             <View style={styles.cartBarArrow}>
               <ChevronRight color={colors.white} size={22} strokeWidth={2.2} />
@@ -1499,14 +1700,14 @@ export function ProductCatalog() {
                     ? <Image contentFit="cover" source={{ uri: selectedProduct.imageUrl }} style={styles.detailProductImage} />
                     : <CupSoda color="#142A8F" size={78} strokeWidth={1.5} />}
                 </View>
-                <Text style={styles.detailCategory}>{selectedProduct.category} · {selectedProduct.size}</Text>
-                <Text style={styles.detailTitle}>{selectedProduct.name}</Text>
-                <Text style={styles.detailDescription}>{selectedProduct.description}</Text>
+                <Text style={styles.detailCategory}>{productCategory(selectedProduct, language)} · {selectedProduct.size}</Text>
+                <Text style={styles.detailTitle}>{productName(selectedProduct, language)}</Text>
+                <Text style={styles.detailDescription}>{productDescription(selectedProduct, language)}</Text>
 
                 <View style={styles.quantityCard}>
                   <View style={styles.quantityCopy}>
                     <Text style={styles.quantityTitle}>Antal</Text>
-                    <Text style={styles.quantityPrice}>{selectedProduct.price} kr pr. stk.</Text>
+                    <Text style={styles.quantityPrice}>{formatProductPrice(selectedProduct.price, language)} {language === 'en' ? 'each' : 'pr. stk.'}</Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
@@ -1530,7 +1731,7 @@ export function ProductCatalog() {
               <View style={styles.detailFooter}>
                 <Pressable accessibilityRole="button" onPress={addSelectedProductToCart} style={({ pressed }) => [styles.detailAddButton, pressed && styles.pressed]}>
                   <ShoppingBag color={colors.white} size={19} />
-                  <Text style={styles.detailAddButtonText}>Læg i kurv · {selectedProduct.price * selectedQuantity} kr</Text>
+                  <Text style={styles.detailAddButtonText}>{language === 'en' ? 'Add to cart' : 'Læg i kurv'} · {formatProductPrice(selectedProduct.price * selectedQuantity, language)}</Text>
                 </Pressable>
               </View>
             </View>
@@ -1595,14 +1796,14 @@ export function ProductCatalog() {
               <Pressable accessibilityRole="button" accessibilityState={{ selected: activePeriodField === 'from' }} onPress={() => setActivePeriodField('from')} style={[styles.historyDateField, activePeriodField === 'from' && styles.historyDateFieldActive]}>
                 <View style={styles.historyDateFieldCopy}>
                   <Text style={styles.historyDateFieldLabel}>Fra</Text>
-                  <Text style={styles.historyDateFieldValue}>{formatPickerDate(draftPeriodStart)}</Text>
+                  <Text style={styles.historyDateFieldValue}>{formatPickerDate(draftPeriodStart, dateLocale)}</Text>
                 </View>
                 <ChevronDown color={colors.muted} size={19} />
               </Pressable>
               <Pressable accessibilityRole="button" accessibilityState={{ selected: activePeriodField === 'to' }} onPress={() => setActivePeriodField('to')} style={[styles.historyDateField, activePeriodField === 'to' && styles.historyDateFieldActive]}>
                 <View style={styles.historyDateFieldCopy}>
                   <Text style={styles.historyDateFieldLabel}>Til</Text>
-                  <Text style={styles.historyDateFieldValue}>{formatPickerDate(draftPeriodEnd)}</Text>
+                  <Text style={styles.historyDateFieldValue}>{formatPickerDate(draftPeriodEnd, dateLocale)}</Text>
                 </View>
                 <ChevronDown color={colors.muted} size={19} />
               </Pressable>
@@ -1624,7 +1825,7 @@ export function ProductCatalog() {
             <ScrollView style={styles.historyCalendarScroll} contentContainerStyle={styles.historyCalendarContent} showsVerticalScrollIndicator={false}>
               {calendarMonths.map((month) => (
                 <View key={`${month.getFullYear()}-${month.getMonth()}`} style={styles.historyCalendarMonth}>
-                  <Text style={styles.historyCalendarMonthLabel}>{formatCalendarMonth(month)}</Text>
+                  <Text style={styles.historyCalendarMonthLabel}>{formatCalendarMonth(month, dateLocale)}</Text>
                   <View style={styles.historyCalendarWeek}>
                     {['Ma', 'Ti', 'On', 'To', 'Fr', 'Lø', 'Sø'].map((weekday) => (
                       <Text key={weekday} style={styles.historyCalendarWeekday}>{weekday}</Text>
@@ -1640,7 +1841,7 @@ export function ProductCatalog() {
                         const isInRange = isInDraftHistoryPeriod(date);
                         return (
                           <View key={getPurchaseDayKey(date)} style={[styles.historyCalendarDayCell, isInRange && styles.historyCalendarDayInRange]}>
-                            <Pressable accessibilityRole="button" accessibilityLabel={formatPickerDate(date)} accessibilityState={{ selected: isSelected }} onPress={() => selectHistoryDate(date)} style={[styles.historyCalendarDayButton, isSelected && styles.historyCalendarDaySelected]}>
+                            <Pressable accessibilityRole="button" accessibilityLabel={formatPickerDate(date, dateLocale)} accessibilityState={{ selected: isSelected }} onPress={() => selectHistoryDate(date)} style={[styles.historyCalendarDayButton, isSelected && styles.historyCalendarDaySelected]}>
                               <Text style={[styles.historyCalendarDayNumber, isInRange && styles.historyCalendarDayNumberInRange, isSelected && styles.historyCalendarDayNumberSelected]}>{date.getDate()}</Text>
                             </Pressable>
                           </View>
@@ -1855,7 +2056,16 @@ const styles = StyleSheet.create({
   settingsContent: { gap: 12, paddingBottom: 16 },
   profileCard: { gap: 11, padding: 16, borderRadius: 20, backgroundColor: colors.white },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 3 },
-  profileAvatar: { width: 62, height: 62, alignItems: 'center', justifyContent: 'center', borderRadius: 31, backgroundColor: '#E2E7FF' },
+  profileAvatar: { width: 62, height: 62, alignItems: 'center', justifyContent: 'center', borderRadius: 31, backgroundColor: '#E2E7FF', overflow: 'hidden' },
+  profileAvatarImage: { width: '100%', height: '100%' },
+  profilePhotoBadge: { position: 'absolute', right: 0, bottom: 0, width: 23, height: 23, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.white, borderRadius: 12, backgroundColor: colors.blue },
+  profilePhotoCopy: { flex: 1, gap: 3 },
+  languageSettingRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  languageToggle: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 20, backgroundColor: colors.background },
+  languageOption: { minHeight: 36, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 18 },
+  languageOptionSelected: { backgroundColor: colors.white },
+  languageOptionText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  languageOptionTextSelected: { color: colors.blue },
   outlineButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: colors.line, borderRadius: 23, backgroundColor: colors.white },
   outlineButtonText: { color: colors.blue, fontSize: 13, fontWeight: '600' },
   settingsLabel: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
@@ -1876,6 +2086,7 @@ const styles = StyleSheet.create({
   biometricSettingRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
   accountRowIcon: { width: 28, alignItems: 'center', justifyContent: 'center' },
   biometricSettingCopy: { flex: 1, gap: 3 },
+  biometricSwitch: { marginTop: 20},
   accountRowTitle: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   accountRowSubtitle: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   accountActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
@@ -1914,6 +2125,8 @@ const styles = StyleSheet.create({
   passwordFields: { gap: 10 },
   passwordFieldLabel: { color: colors.ink, fontSize: 14, fontWeight: '600', marginTop: 6 },
   passwordInput: { minHeight: 54, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white, color: colors.ink, fontSize: 15 },
+  passwordForgotButton: { minHeight: 38, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: 4 },
+  passwordForgotText: { color: colors.blue, fontSize: 13, fontWeight: '600' },
   passwordInputError: { borderWidth: 1.5, borderColor: '#D20F16' },
   passwordRequirements: { gap: 7, marginTop: 9, marginBottom: 6 },
   passwordRequirementRow: { minHeight: 29, flexDirection: 'row', alignItems: 'center', gap: 10 },

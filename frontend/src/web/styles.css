@@ -1144,6 +1144,8 @@
 .frigo-category-list { max-height: min(48vh, 360px); overflow-y: auto; margin-bottom: 12px; border-top: 1px solid var(--frigo-color-light-blue); }
 .frigo-category-row { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--frigo-color-light-blue); }
 .frigo-category-row > input { min-width: 0; flex: 1; }
+.frigo-category-edit-fields { display: flex; min-width: 0; flex: 1; gap: 6px; }
+.frigo-category-edit-fields input { min-width: 0; width: 50%; flex: 1; }
 .frigo-category-row-details { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .frigo-category-row-details strong { overflow: hidden; color: var(--frigo-color-night); font-size: 11px; text-overflow: ellipsis; }
 .frigo-category-row-details small { color: var(--admin-muted); font-size: 9px; }
