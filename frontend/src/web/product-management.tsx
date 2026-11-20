@@ -249,6 +249,7 @@ function ProductModal({
 function CategoryModal({
   categories,
   productCounts,
+  canEditProducts,
   isSaving,
   onClose,
   onCreate,
@@ -257,6 +258,7 @@ function CategoryModal({
 }: {
   categories: Category[];
   productCounts: Map<number, number>;
+  canEditProducts: boolean;
   isSaving: boolean;
   onClose: () => void;
   onCreate: (name: string, nameEn: string) => Promise<void>;
@@ -324,26 +326,28 @@ function CategoryModal({
             <h2 id="frigo-category-modal-title">Kategorier</h2>
             <button className="frigo-admin-modal-close" type="button" onClick={onClose} disabled={isSaving} aria-label="Luk">×</button>
           </div>
-          <form className="frigo-category-create" onSubmit={(event) => void createCategory(event)}>
-            <label htmlFor="frigo-new-category">Ny kategori</label>
-            <div>
-              <input
-                id="frigo-new-category"
-                required
-                maxLength={80}
-                value={newName}
-                onChange={(event) => setNewName(event.currentTarget.value)}
-                placeholder="Dansk navn"
-              />
-              <input
-                maxLength={80}
-                value={newNameEn}
-                onChange={(event) => setNewNameEn(event.currentTarget.value)}
-                placeholder="English name (optional)"
-              />
-              <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !newName.trim()}>Opret</button>
-            </div>
-          </form>
+          {canEditProducts && (
+            <form className="frigo-category-create" onSubmit={(event) => void createCategory(event)}>
+              <label htmlFor="frigo-new-category">Ny kategori</label>
+              <div>
+                <input
+                  id="frigo-new-category"
+                  required
+                  maxLength={80}
+                  value={newName}
+                  onChange={(event) => setNewName(event.currentTarget.value)}
+                  placeholder="Dansk navn"
+                />
+                <input
+                  maxLength={80}
+                  value={newNameEn}
+                  onChange={(event) => setNewNameEn(event.currentTarget.value)}
+                  placeholder="English name (optional)"
+                />
+                <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !newName.trim()}>Opret</button>
+              </div>
+            </form>
+          )}
           <div className="frigo-category-list">
             {categories.map((category) => (
               <div className="frigo-category-row" key={category.id}>
@@ -376,7 +380,7 @@ function CategoryModal({
                     <small>{productCounts.get(category.id) ?? 0} produkter</small>
                   </span>
                 )}
-                <span className="frigo-category-row-actions">
+                {canEditProducts && <span className="frigo-category-row-actions">
                   {editing?.category.id === category.id ? (
                     <>
                       <button className="frigo-product-icon-button" type="button" onClick={() => void saveCategory()} disabled={isSaving} aria-label="Gem kategori">✓</button>
@@ -400,7 +404,7 @@ function CategoryModal({
                       ><ProductIcon kind="delete" /></button>
                     </>
                   )}
-                </span>
+                </span>}
               </div>
             ))}
             {categories.length === 0 && <p className="frigo-admin-company-message">Der er endnu ingen kategorier.</p>}
@@ -464,7 +468,7 @@ function DeleteProductModal({
   );
 }
 
-export default function ProductManagement() {
+export default function ProductManagement({ canEditProducts }: { canEditProducts: boolean }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -728,13 +732,13 @@ export default function ProductManagement() {
           <h1>Produkter</h1>
           <p>Produkter og kategorier, som medarbejderne kan registrere i appen.</p>
         </div>
-          <button
+          {canEditProducts && <button
             className="frigo-admin-primary-button frigo-products-create-button"
             type="button"
             onClick={() => setEditingProduct(null)}
           >
             <ProductIcon kind="plus" /> Opret produkt
-          </button>
+          </button>}
         </header>
         {actionError && <p className="frigo-admin-notice" role="status">{actionError}</p>}
         {loadError && <p className="frigo-admin-error" role="alert">{loadError}</p>}
@@ -773,15 +777,17 @@ export default function ProductManagement() {
                 <span>Uden kategori</span><small>{uncategorizedCount}</small>
               </button>
             </div>
-            <button className="frigo-products-edit-categories" type="button" onClick={() => setShowCategories(true)}>
-              <ProductIcon kind="edit" /> Rediger kategorier
-            </button>
+            {canEditProducts && (
+              <button className="frigo-products-edit-categories" type="button" onClick={() => setShowCategories(true)}>
+                <ProductIcon kind="edit" /> Rediger kategorier
+              </button>
+            )}
           </aside>
           <div className="frigo-products-table-panel">
             <div className="frigo-products-table-scroll">
               <table className="frigo-products-table">
                 <thead>
-                  <tr><th>Produkt</th><th>Kategori</th><th>Pris</th><th>Status</th><th>Handlinger</th></tr>
+                  <tr><th>Produkt</th><th>Kategori</th><th>Pris</th><th>Status</th>{canEditProducts && <th>Handlinger</th>}</tr>
                 </thead>
                 {products.length > 0 && (
                   <tbody>
@@ -801,7 +807,7 @@ export default function ProductManagement() {
                         <td>{product.category_id === null ? 'Uden kategori' : categoryById.get(product.category_id)?.name ?? 'Uden kategori'}</td>
                         <td className="frigo-product-price">{product.price.toLocaleString('da-DK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kr</td>
                         <td><span className={`frigo-admin-status${product.active ? '' : ' is-inactive'}`}>{product.active ? 'Aktiv' : 'Inaktiv'}</span></td>
-                        <td>
+                        {canEditProducts && <td>
                           <span className="frigo-product-actions">
                             <button className="frigo-product-icon-button" type="button" onClick={() => setEditingProduct(product)} aria-label={`Rediger ${product.name}`}>
                               <ProductIcon kind="edit" />
@@ -810,11 +816,11 @@ export default function ProductManagement() {
                               <ProductIcon kind="delete" />
                             </button>
                           </span>
-                        </td>
+                        </td>}
                       </tr>
                     ))}
                     {filteredProducts.length === 0 && (
-                      <tr><td className="frigo-products-empty" colSpan={5}>Ingen produkter i denne kategori.</td></tr>
+                      <tr><td className="frigo-products-empty" colSpan={canEditProducts ? 5 : 4}>Ingen produkter i denne kategori.</td></tr>
                     )}
                   </tbody>
                 )}
@@ -823,16 +829,20 @@ export default function ProductManagement() {
             {products.length === 0 && (
               <div className="frigo-products-empty-state">
                 <strong>Ingen produkter endnu</strong>
-                <p>Opret det første produkt, så medarbejderne kan begynde at registrere.</p>
-                <button className="frigo-admin-primary-button" type="button" onClick={() => setEditingProduct(null)}>
-                  Opret produkt
-                </button>
+                <p>{canEditProducts
+                  ? 'Opret det første produkt, så medarbejderne kan begynde at registrere.'
+                  : 'Der er endnu ingen produkter at vise.'}</p>
+                {canEditProducts && (
+                  <button className="frigo-admin-primary-button" type="button" onClick={() => setEditingProduct(null)}>
+                    Opret produkt
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       )}
-      {editingProduct !== undefined && (
+      {canEditProducts && editingProduct !== undefined && (
         <ProductModal
           product={editingProduct}
           categories={editingCategories}
@@ -841,10 +851,11 @@ export default function ProductManagement() {
           onSave={saveProduct}
         />
       )}
-      {showCategories && (
+      {canEditProducts && showCategories && (
         <CategoryModal
           categories={visibleCategories}
           productCounts={productCounts}
+          canEditProducts={canEditProducts}
           isSaving={isSaving}
           onClose={() => setShowCategories(false)}
           onCreate={createCategory}

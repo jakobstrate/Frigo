@@ -34,6 +34,7 @@ create table public.profiles (
   email text not null,
   role public.app_role not null default 'employee',
   roles public.app_role[] not null default array['employee'::public.app_role],
+  can_edit_products boolean not null default false,
   status public.user_status not null default 'pending',
   invitation_completed boolean not null default true,
   company_id bigint references public.companies(id) on delete restrict,
@@ -512,6 +513,23 @@ as $$
   );
 $$;
 
+create or replace function public.current_user_can_edit_products()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and status = 'active'
+      and role = 'company_admin'
+      and can_edit_products
+  );
+$$;
+
 create or replace function public.prevent_last_company_admin_delete()
 returns trigger
 language plpgsql
@@ -713,14 +731,14 @@ on public.categories for all to authenticated
 using (
   public.is_super_admin()
   or (
-    public.current_user_role() = 'company_admin'
+    public.current_user_can_edit_products()
     and (company_id is null or company_id = public.current_company_id())
   )
 )
 with check (
   public.is_super_admin()
   or (
-    public.current_user_role() = 'company_admin'
+    public.current_user_can_edit_products()
     and (
       (company_id is null and department_id is null)
       or (company_id = public.current_company_id() and department_id is not null)
@@ -755,14 +773,14 @@ on public.products for all to authenticated
 using (
   public.is_super_admin()
   or (
-    public.current_user_role() = 'company_admin'
+    public.current_user_can_edit_products()
     and company_id is null
   )
 )
 with check (
   public.is_super_admin()
   or (
-    public.current_user_role() = 'company_admin'
+    public.current_user_can_edit_products()
     and company_id is null
   )
 );
@@ -920,7 +938,7 @@ with check (
   and (
     public.is_super_admin()
     or (
-      public.current_user_role() = 'company_admin'
+      public.current_user_can_edit_products()
       and (
         (storage.foldername(name))[1] = 'catalog'
         or (storage.foldername(name))[1] = public.current_company_id()::text
@@ -945,7 +963,7 @@ using (
   bucket_id = 'product-images'
   and (
     public.is_super_admin()
-    or public.current_user_role() = 'company_admin'
+    or public.current_user_can_edit_products()
   )
 );
 

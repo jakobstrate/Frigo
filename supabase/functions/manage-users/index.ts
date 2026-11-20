@@ -312,6 +312,15 @@ Deno.serve(async (request: Request) => {
       if (!name || !validEmail(email) || !validRoles(requestedRoles)) {
         return jsonResponse(400, { error: 'Enter a name, valid email address, and at least one role.' });
       }
+      if (body.canEditProducts !== undefined && actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can grant product editing access.' });
+      }
+      if (body.canEditProducts !== undefined && typeof body.canEditProducts !== 'boolean') {
+        return jsonResponse(400, { error: 'Choose a valid product editing permission.' });
+      }
+      if (body.canEditProducts === true && primaryRole(requestedRoles) !== 'company_admin') {
+        return jsonResponse(400, { error: 'Only company admins can have product editing access.' });
+      }
       const requestedRole = primaryRole(requestedRoles);
       if (actor.role === 'company_admin'
         && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
@@ -357,6 +366,7 @@ Deno.serve(async (request: Request) => {
         company_id: assignedCompanyId,
         department_id: departmentId,
         avatar_path: avatarPath,
+        can_edit_products: requestedRole === 'company_admin' && body.canEditProducts === true,
       });
       if (profileError) {
         const { error: cleanupError } = await supabaseAdmin.auth.admin.deleteUser(inviteData.user.id);
@@ -376,7 +386,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: target, error: targetError } = await supabaseAdmin
         .from('profiles')
-        .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id')
+        .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id, can_edit_products')
         .eq('id', userId)
         .maybeSingle();
       if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
@@ -422,6 +432,17 @@ Deno.serve(async (request: Request) => {
         || !['active', 'inactive', 'pending', 'rejected'].includes(requestedStatus)) {
         return jsonResponse(400, { error: 'Enter valid user details and status.' });
       }
+      if (body.canEditProducts !== undefined && actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can grant product editing access.' });
+      }
+      if (body.canEditProducts !== undefined && typeof body.canEditProducts !== 'boolean') {
+        return jsonResponse(400, { error: 'Choose a valid product editing permission.' });
+      }
+      if (body.canEditProducts === true && primaryRole(requestedRoles) !== 'company_admin') {
+        return jsonResponse(400, { error: 'Only company admins can have product editing access.' });
+      }
+      const canEditProducts = primaryRole(requestedRoles) === 'company_admin'
+        && (body.canEditProducts === undefined ? target.can_edit_products : body.canEditProducts);
       const requestedRole = primaryRole(requestedRoles);
       if (actor.role === 'company_admin'
         && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
@@ -477,6 +498,7 @@ Deno.serve(async (request: Request) => {
         status: requestedStatus,
         company_id: companyId,
         department_id: departmentId,
+        can_edit_products: canEditProducts,
       }).eq('id', userId);
       if (profileError) {
         const rollbackChanges: { email?: string; email_confirm?: boolean; ban_duration?: string } = {};

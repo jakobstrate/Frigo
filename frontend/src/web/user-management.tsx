@@ -16,6 +16,7 @@ type ManagedUser = {
   status: UserStatus;
   invitation_completed: boolean;
   company_id: number | null;
+  can_edit_products: boolean;
   department_id: number | null;
   avatar_path: string | null;
   avatar_url: string | null;
@@ -26,6 +27,7 @@ type UserInput = {
   roles: UserRole[];
   companyId: number | null;
   departmentId: number | null;
+  canEditProducts: boolean;
   status: UserStatus;
   image?: File;
 };
@@ -102,6 +104,7 @@ function UserModal({
   const [email, setEmail] = useState(user?.email ?? '');
   const initialRoles = user?.roles ?? [user?.role ?? 'employee'];
   const [userRoles, setUserRoles] = useState<UserRole[]>(initialRoles);
+  const [canEditProducts, setCanEditProducts] = useState(user?.can_edit_products ?? false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user
     ? user.company_id
     : actorRole === 'company_admin'
@@ -190,6 +193,10 @@ function UserModal({
       roles: userRoles,
       companyId: selectedCompanyId,
       departmentId,
+      canEditProducts: canChooseRole
+        && userRoles.includes('company_admin')
+        && !userRoles.includes('super_admin')
+        && canEditProducts,
       status,
       image,
     }, user?.id);
@@ -292,6 +299,20 @@ function UserModal({
                 </label>
               ))}
             </fieldset>
+          )}
+
+          {canChooseRole && userRoles.includes('company_admin') && !userRoles.includes('super_admin') && (
+            <div className="frigo-user-product-access">
+              <span className="frigo-admin-form-section-label">Adgang til produktændringer</span>
+              <label className="frigo-user-radio">
+                <input
+                  type="checkbox"
+                  checked={canEditProducts}
+                  onChange={(event) => setCanEditProducts(event.currentTarget.checked)}
+                />
+                <span>Kan oprette, redigere og slette produkter og kategorier</span>
+              </label>
+            </div>
           )}
 
           {user && (
@@ -441,7 +462,7 @@ export default function UserManagement({
 
     let profileQuery = supabase
       .from('profiles')
-      .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id, avatar_path')
+      .select('id, display_name, email, role, roles, status, invitation_completed, company_id, can_edit_products, department_id, avatar_path')
       .order('display_name');
     profileQuery = statusFilter === 'deleted'
       ? profileQuery.eq('status', 'deleted')
@@ -538,6 +559,7 @@ export default function UserManagement({
           roles: input.roles,
           companyId: input.companyId,
           departmentId: input.departmentId,
+          ...(role === 'super_admin' ? { canEditProducts: input.canEditProducts } : {}),
           status: input.status,
         }
       : {
@@ -547,9 +569,10 @@ export default function UserManagement({
           roles: input.roles,
           companyId: input.companyId,
           departmentId: input.departmentId,
+          ...(role === 'super_admin' ? { canEditProducts: input.canEditProducts } : {}),
           avatarPath: uploadedPath,
         };
-    const { error } = await supabase.functions.invoke('manage-users', { body });
+    const { data, error } = await supabase.functions.invoke('manage-users', { body });
     if (error) {
       const message = await getFunctionError(error);
       if (uploadedPath) {
@@ -557,6 +580,25 @@ export default function UserManagement({
         if (cleanupError) return `${message} Billedet kunne heller ikke ryddes op: ${cleanupError.message}`;
       }
       return message;
+    }
+
+    if (role === 'super_admin') {
+      const targetUserId = userId ?? data?.userId;
+      if (typeof targetUserId !== 'string') {
+        return 'Brugeren blev gemt, men produktadgangen kunne ikke bekræftes.';
+      }
+      const { data: updatedProfile, error: permissionError } = await supabase
+        .from('profiles')
+        .update({ can_edit_products: input.canEditProducts })
+        .eq('id', targetUserId)
+        .select('id')
+        .maybeSingle();
+      if (permissionError) {
+        return `Brugeren blev gemt, men produktadgangen kunne ikke gemmes: ${permissionError.message}`;
+      }
+      if (!updatedProfile) {
+        return 'Brugeren blev gemt, men produktadgangen kunne ikke bekræftes.';
+      }
     }
 
     setShowCreateModal(false);

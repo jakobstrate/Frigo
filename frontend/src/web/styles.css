@@ -983,7 +983,7 @@
 .frigo-user-identity small, .frigo-user-department { color: var(--frigo-color-gray); font-size: 12px; }
 .frigo-user-company { display: block; min-width: 150px; color: var(--frigo-color-ink); font-size: 13px; font-weight: 650;}
 .frigo-user-department { display: block; margin-top: 4px; }
-.frigo-user-avatar { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 50%; color: var(--frigo-color-primary); background: var(--frigo-color-light-blue); }
+.frigo-user-avatar { display: grid; width: 60px; height: 60px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 50%; color: var(--frigo-color-primary); background: var(--frigo-color-light-blue); }
 .frigo-user-avatar-image, .frigo-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .frigo-user-avatar-placeholder { display: grid; width: 100%; height: 100%; place-items: center; }
 .frigo-user-avatar-placeholder svg { width: 23px; height: 23px; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
@@ -1023,6 +1023,8 @@
 .frigo-user-radio { display: flex; align-items: center; gap: 9px; color: var(--frigo-color-ink) !important; font-size: 14px !important; font-weight: 400 !important; cursor: pointer; }
 .frigo-user-radio input { width: 19px; min-height: 19px; height: 19px; margin: 0; accent-color: var(--frigo-color-primary); }
 .frigo-user-radio small { color: var(--frigo-color-gray); font-size: 12px; }
+.frigo-user-product-access { display: flex; flex-direction: column; gap: 8px; margin: 7px 0 3px; }
+.frigo-user-product-access .frigo-admin-form-section-label { margin: 0; }
 .frigo-user-modal .frigo-admin-modal-actions { margin-top: 10px; }
 .frigo-user-modal .frigo-admin-modal-actions button { min-height: 48px; padding: 0 20px; font-size: 14px; }
 @media (max-width: 760px) {
