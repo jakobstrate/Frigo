@@ -195,7 +195,7 @@ create table public.payment_provider_accounts (
 
 create table public.purchases (
   id bigint generated always as identity primary key,
-  purchaser_id uuid not null references public.profiles(id) on delete restrict,
+  purchaser_id uuid references public.profiles(id) on delete set null,
   company_id bigint not null references public.companies(id) on delete restrict,
   department_id bigint,
   product_id bigint not null references public.products(id) on delete restrict,
@@ -206,6 +206,7 @@ create table public.purchases (
   unit_price numeric(10, 2) not null check (unit_price >= 0),
   total_price numeric(12, 2) generated always as (amount * unit_price) stored,
   created_at timestamptz not null default now(),
+  anonymized_at timestamptz,
   foreign key (department_id, company_id)
     references public.departments(id, company_id) on delete restrict
 );
@@ -252,14 +253,15 @@ for each row execute function public.prevent_inactive_product_purchase();
 
 create table public.payments (
   id bigint generated always as identity primary key,
-  user_id uuid not null references public.profiles(id) on delete restrict,
+  user_id uuid references public.profiles(id) on delete set null,
   company_id bigint not null references public.companies(id) on delete restrict,
   purchase_id bigint references public.purchases(id) on delete set null,
   payment_type public.payment_type not null default 'purchase',
   amount numeric(12, 2) not null check (amount >= 0),
   status public.payment_status not null default 'paid',
   paid_at timestamptz not null default now(),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  anonymized_at timestamptz
 );
 
 create table public.notifications (
@@ -443,6 +445,44 @@ begin
   return old;
 end;
 $$;
+
+create or replace function public.permanently_delete_user(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $$
+declare
+  v_deleted_at timestamptz;
+begin
+  select deleted_at into v_deleted_at
+  from public.profiles
+  where id = p_user_id and status = 'deleted'
+  for update;
+  if not found then
+    raise exception 'The user does not exist or has not been soft-deleted';
+  end if;
+
+  update public.purchases
+  set purchaser_id = null, purchaser_name = 'Slettet bruger', anonymized_at = coalesce(v_deleted_at, now())
+  where purchaser_id = p_user_id;
+
+  update public.payments
+  set user_id = null, anonymized_at = coalesce(v_deleted_at, now())
+  where user_id = p_user_id;
+
+  delete from public.payment_provider_accounts
+  where user_id = p_user_id;
+
+  delete from auth.users where id = p_user_id;
+  if not found then
+    raise exception 'The user login account could not be found';
+  end if;
+end;
+$$;
+
+revoke all on function public.permanently_delete_user(uuid) from public, anon, authenticated;
+grant execute on function public.permanently_delete_user(uuid) to service_role;
 
 create trigger profiles_set_deleted_at
 before update of status on public.profiles

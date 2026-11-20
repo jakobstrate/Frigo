@@ -171,6 +171,47 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
+    if (body.action === 'permanently-delete') {
+      if (actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can permanently delete users.' });
+      }
+
+      const userId = typeof body.userId === 'string' ? body.userId : '';
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+        return jsonResponse(400, { error: 'Choose a valid user.' });
+      }
+      if (userId === actor.id) {
+        return jsonResponse(400, { error: 'You cannot permanently delete your own account.' });
+      }
+
+      const { data: target, error: targetError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, status, avatar_path')
+        .eq('id', userId)
+        .maybeSingle();
+      if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
+      if (!target || target.status !== 'deleted') {
+        return jsonResponse(404, { error: 'The user does not exist or has not been soft-deleted.' });
+      }
+
+      const { error: deleteError } = await supabaseAdmin.rpc('permanently_delete_user', {
+        p_user_id: userId,
+      });
+      if (deleteError) {
+        return jsonResponse(409, { error: `Could not permanently delete the user: ${deleteError.message}` });
+      }
+
+      let avatarCleanupWarning: string | undefined;
+      if (target.avatar_path) {
+        const { error: avatarError } = await supabaseAdmin.storage
+          .from('profile-images')
+          .remove([target.avatar_path]);
+        if (avatarError) avatarCleanupWarning = avatarError.message;
+      }
+
+      return jsonResponse(200, { userId, avatarCleanupWarning });
+    }
+
     if (body.action === 'review-account-deletion-request') {
       const requestId = positiveId(body.requestId);
       if (requestId === null || typeof body.accept !== 'boolean') {

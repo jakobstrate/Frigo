@@ -721,6 +721,20 @@ $$;
 revoke all on function public.soft_delete_company(bigint) from public, anon, authenticated;
 grant execute on function public.soft_delete_company(bigint) to service_role;
 
+alter table public.purchases alter column purchaser_id drop not null;
+alter table public.purchases drop constraint if exists purchases_purchaser_id_fkey;
+alter table public.purchases add column if not exists anonymized_at timestamptz;
+alter table public.purchases
+  add constraint purchases_purchaser_id_fkey
+  foreign key (purchaser_id) references public.profiles(id) on delete set null;
+
+alter table public.payments alter column user_id drop not null;
+alter table public.payments drop constraint if exists payments_user_id_fkey;
+alter table public.payments add column if not exists anonymized_at timestamptz;
+alter table public.payments
+  add constraint payments_user_id_fkey
+  foreign key (user_id) references public.profiles(id) on delete set null;
+
 create or replace function public.prevent_early_hard_delete()
 returns trigger
 language plpgsql
@@ -744,6 +758,44 @@ begin
   return old;
 end;
 $$;
+
+create or replace function public.permanently_delete_user(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $$
+declare
+  v_deleted_at timestamptz;
+begin
+  select deleted_at into v_deleted_at
+  from public.profiles
+  where id = p_user_id and status = 'deleted'
+  for update;
+  if not found then
+    raise exception 'The user does not exist or has not been soft-deleted';
+  end if;
+
+  update public.purchases
+  set purchaser_id = null, purchaser_name = 'Slettet bruger', anonymized_at = coalesce(v_deleted_at, now())
+  where purchaser_id = p_user_id;
+
+  update public.payments
+  set user_id = null, anonymized_at = coalesce(v_deleted_at, now())
+  where user_id = p_user_id;
+
+  delete from public.payment_provider_accounts
+  where user_id = p_user_id;
+
+  delete from auth.users where id = p_user_id;
+  if not found then
+    raise exception 'The user login account could not be found';
+  end if;
+end;
+$$;
+
+revoke all on function public.permanently_delete_user(uuid) from public, anon, authenticated;
+grant execute on function public.permanently_delete_user(uuid) to service_role;
 
 create or replace function public.review_employee_request(
   p_request_id bigint,

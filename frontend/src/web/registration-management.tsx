@@ -8,7 +8,7 @@ type Department = { id: number; name: string; company_id: number };
 type UserStatus = 'active' | 'inactive' | 'pending' | 'rejected' | 'deleted';
 type PurchaseRecord = {
   id: number;
-  purchaser_id: string;
+  purchaser_id: string | null;
   company_id: number;
   purchaser_name: string;
   department_id: number | null;
@@ -261,7 +261,9 @@ export default function RegistrationManagement({
       }
 
       const purchaseRows = purchasesResult.data ?? [];
-      const purchaserIds = [...new Set(purchaseRows.map((purchase) => purchase.purchaser_id))];
+      const purchaserIds = [...new Set(purchaseRows.flatMap((purchase) =>
+        purchase.purchaser_id ? [purchase.purchaser_id] : [],
+      ))];
       const profilesResult = purchaserIds.length > 0
         ? await supabase.from('profiles').select('id, status').in('id', purchaserIds)
         : { data: [], error: null };
@@ -278,7 +280,9 @@ export default function RegistrationManagement({
       setDepartments(departmentsResult.data ?? []);
       setPurchases(purchaseRows.map((purchase) => ({
         ...purchase,
-        purchaser_status: statusByPurchaserId.get(purchase.purchaser_id) ?? 'unknown',
+        purchaser_status: purchase.purchaser_id
+          ? statusByPurchaserId.get(purchase.purchaser_id) ?? 'unknown'
+          : 'deleted',
       })));
       setIsLoading(false);
     }
@@ -306,8 +310,10 @@ export default function RegistrationManagement({
     const companyNames = new Map(companies.map((company) => [company.id, company.name]));
     const byEmployee = new Map<string, EmployeeSummary>();
     for (const purchase of visiblePurchases) {
-      const summary = byEmployee.get(purchase.purchaser_id) ?? {
-        id: purchase.purchaser_id,
+      const employeeKey = purchase.purchaser_id
+        ?? `anonymized:${purchase.company_id}:${purchase.department_id ?? 'company-wide'}`;
+      const summary = byEmployee.get(employeeKey) ?? {
+        id: employeeKey,
         name: purchase.purchaser_name,
         company: companyNames.get(purchase.company_id) ?? 'Virksomhed',
         department: purchase.department_name,
@@ -317,7 +323,7 @@ export default function RegistrationManagement({
       };
       summary.amount += purchase.amount;
       summary.total += Number(purchase.total_price);
-      byEmployee.set(purchase.purchaser_id, summary);
+      byEmployee.set(employeeKey, summary);
     }
     return [...byEmployee.values()].sort((first, second) => first.name.localeCompare(second.name, 'da'));
   }, [companies, visiblePurchases]);
@@ -337,7 +343,9 @@ export default function RegistrationManagement({
 
   const totalSpending = visiblePurchases.reduce((total, purchase) => total + Number(purchase.total_price), 0);
   const totalGoods = visiblePurchases.reduce((total, purchase) => total + purchase.amount, 0);
-  const registeredUsers = new Set(visiblePurchases.map((purchase) => purchase.purchaser_id)).size;
+  const registeredUsers = new Set(visiblePurchases.flatMap((purchase) =>
+    purchase.purchaser_id ? [purchase.purchaser_id] : [],
+  )).size;
 
   function openPeriodPicker() {
     setDraftStart(toDateInputValue(selectedPeriod.start));
