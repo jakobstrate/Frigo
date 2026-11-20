@@ -104,7 +104,7 @@ alter table public.profiles
 
 drop policy if exists "Anyone can view active companies for signup" on public.companies;
 create policy "Anyone can view active companies for signup"
-on public.companies for select to anon
+on public.companies for select to anon, authenticated
 using (status = 'active');
 
 alter table public.employee_requests

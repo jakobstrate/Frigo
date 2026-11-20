@@ -612,7 +612,7 @@ on public.companies for select to authenticated
 using (public.is_super_admin() or id = public.current_company_id());
 
 create policy "Anyone can view active companies for signup"
-on public.companies for select to anon
+on public.companies for select to anon, authenticated
 using (status = 'active');
 
 create policy "Super admins create companies"
