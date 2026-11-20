@@ -46,10 +46,10 @@ async function getPendingRequestCount(profile: Pick<AdminProfile, 'id' | 'role' 
     .select('id', { count: 'exact', head: true })
     .eq('status', 'pending');
   const scopedEmployeeCountQuery = profile.role === 'super_admin'
-    ? employeeCountQuery.eq('requested_admin_id', profile.id)
+    ? employeeCountQuery
     : employeeCountQuery.eq('company_id', profile.company_id ?? -1);
   const scopedDeletionCountQuery = profile.role === 'super_admin'
-    ? deletionCountQuery.eq('requested_admin_id', profile.id)
+    ? deletionCountQuery
     : deletionCountQuery.eq('company_id', profile.company_id ?? -1);
   const [employeeCountResult, deletionCountResult] = await Promise.all([
     scopedEmployeeCountQuery,

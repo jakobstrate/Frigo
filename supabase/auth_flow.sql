@@ -175,6 +175,7 @@ on public.account_deletion_requests for select to authenticated
 using (
   user_id = auth.uid()
   or requested_admin_id = auth.uid()
+  or public.is_super_admin()
   or (
     public.current_user_role() = 'company_admin'
     and company_id = public.current_company_id()
@@ -286,8 +287,7 @@ begin
   if reviewer.roles @> array['company_admin'::public.app_role]
     and reviewer.company_id = request_row.company_id then
     null;
-  elsif reviewer.roles @> array['super_admin'::public.app_role]
-    and request_row.requested_admin_id = reviewer.id then
+  elsif reviewer.roles @> array['super_admin'::public.app_role] then
     null;
   else
     raise exception 'You are not authorized to review this request';
@@ -780,9 +780,6 @@ begin
     and reviewer.company_id = request_row.company_id then
     approved_company_id := reviewer.company_id;
   elsif reviewer.roles @> array['super_admin'::public.app_role] then
-    if request_row.requested_admin_id is distinct from reviewer.id then
-      raise exception 'Only the SuperAdmin assigned to this request can review it';
-    end if;
     if p_accept then
       if p_company_id is null or not exists (
         select 1 from public.companies c where c.id = p_company_id and c.status = 'active'

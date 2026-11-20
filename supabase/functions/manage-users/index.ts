@@ -189,10 +189,6 @@ Deno.serve(async (request: Request) => {
       if (actor.role === 'company_admin' && deletionRequest.company_id !== actor.company_id) {
         return jsonResponse(403, { error: 'You can only review requests from your own company.' });
       }
-      if (actor.role === 'super_admin' && deletionRequest.requested_admin_id !== actor.id) {
-        return jsonResponse(403, { error: 'Only the assigned Superadmin can review this request.' });
-      }
-
       if (body.accept) {
         const { data: target, error: targetError } = await supabaseAdmin
           .from('profiles')
