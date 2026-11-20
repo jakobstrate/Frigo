@@ -1383,12 +1383,13 @@ export function ProductCatalog() {
                     <KeyRound color={colors.ink} size={20} />
                   </View>
                   <View style={styles.biometricSettingCopy}>
-                    <Text style={styles.accountRowTitle}>Log ind med Face ID</Text>
+                    <Text style={styles.accountRowTitle}>Biometrisk login</Text>
                     <Text style={styles.accountRowSubtitle}>{biometricEnabled ? 'Til. Bruges næste gang du logger ind.' : 'Fra. Brug adgangskode til login.'}</Text>
                   </View>
                   <Switch
-                    accessibilityLabel="Log ind med Face ID"
+                    accessibilityLabel="Biometrisk login"
                     onValueChange={(enabled) => { void toggleBiometrics(enabled); }}
+                    style={styles.biometricSwitch}
                     thumbColor={colors.white}
                     trackColor={{ false: '#C8D0DB', true: colors.blue }}
                     value={biometricEnabled}
@@ -1876,6 +1877,7 @@ const styles = StyleSheet.create({
   biometricSettingRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
   accountRowIcon: { width: 28, alignItems: 'center', justifyContent: 'center' },
   biometricSettingCopy: { flex: 1, gap: 3 },
+  biometricSwitch: { marginTop: 4 },
   accountRowTitle: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   accountRowSubtitle: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   accountActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
