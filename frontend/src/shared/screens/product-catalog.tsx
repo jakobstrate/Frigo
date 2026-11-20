@@ -1877,7 +1877,7 @@ const styles = StyleSheet.create({
   biometricSettingRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
   accountRowIcon: { width: 28, alignItems: 'center', justifyContent: 'center' },
   biometricSettingCopy: { flex: 1, gap: 3 },
-  biometricSwitch: { marginTop: 4 },
+  biometricSwitch: { marginTop: 20},
   accountRowTitle: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   accountRowSubtitle: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   accountActionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
