@@ -7,6 +7,13 @@ alter table public.profiles
   add column if not exists invitation_completed boolean not null default true,
   add column if not exists roles public.app_role[] not null default array['employee'::public.app_role];
 
+alter table public.categories
+  add column if not exists name_en text;
+
+alter table public.products
+  add column if not exists name_en text,
+  add column if not exists description_en text;
+
 update public.profiles
 set roles = array[role]
 where not (roles @> array[role]);

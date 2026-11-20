@@ -4,12 +4,13 @@ import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { Fingerprint, ScanFace } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
 import { biometricCredentialsKey, biometricCredentialsOptions, biometricCredentialsReadyKey, biometricSetupKey } from '@/frontend/src/constants/biometrics';
 import { useLogin, type LoginCredentials } from '@/frontend/src/hooks/use-login';
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useAppLanguage } from '@/frontend/src/shared/language';
 
 const colors = {
   background: '#1028D8',
@@ -19,6 +20,7 @@ const colors = {
 };
 
 export default function LoginScreen() {
+  const { language } = useAppLanguage();
   const [biometricDestination, setBiometricDestination] = useState<Href | null>(null);
   const [biometricName, setBiometricName] = useState('biometrisk login');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -96,8 +98,8 @@ export default function LoginScreen() {
     setBiometricError('');
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: `Aktivér ${biometricName} til FriGo`,
-        cancelLabel: 'Ikke nu',
+        promptMessage: language === 'en' ? `Enable ${biometricName} for FriGo` : `Aktivér ${biometricName} til FriGo`,
+        cancelLabel: language === 'en' ? 'Not now' : 'Ikke nu',
         disableDeviceFallback: true,
       });
 

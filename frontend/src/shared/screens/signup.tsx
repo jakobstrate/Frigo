@@ -2,11 +2,12 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/backend/src/supabase';
 import { FrigoLogoIcon } from '@/frontend/src/components/frigo-logo';
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from '@/frontend/src/shared/language';
 
 const colors = {
   background: '#1028D8',

@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 
 import { supabase } from '@/backend/src/supabase';
 
-type Category = { id: number; name: string; department_id: number | null };
+type Category = { id: number; name: string; name_en: string | null; department_id: number | null };
 type Product = {
   id: number;
   company_id: number | null;
   category_id: number | null;
   name: string;
+  name_en: string | null;
   description: string | null;
+  description_en: string | null;
   unit: string;
   price: number;
   image_path: string;
@@ -48,7 +50,9 @@ function ProductModal({
   onClose: () => void;
   onSave: (input: {
     name: string;
+    nameEn: string;
     description: string;
+    descriptionEn: string;
     unit: string;
     price: number;
     categoryId: number | null;
@@ -57,7 +61,9 @@ function ProductModal({
   }) => Promise<void>;
 }) {
   const [name, setName] = useState(product?.name ?? '');
+  const [nameEn, setNameEn] = useState(product?.name_en ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
+  const [descriptionEn, setDescriptionEn] = useState(product?.description_en ?? '');
   const [unit, setUnit] = useState(product?.unit ?? '');
   const [price, setPrice] = useState(product ? String(product.price) : '');
   const [categoryId, setCategoryId] = useState(product?.category_id ? String(product.category_id) : '');
@@ -88,7 +94,9 @@ function ProductModal({
     try {
       await onSave({
         name: name.trim(),
+        nameEn: nameEn.trim(),
         description: description.trim(),
+        descriptionEn: descriptionEn.trim(),
         unit: unit.trim(),
         price: parsedPrice,
         categoryId: categoryId ? Number(categoryId) : null,
@@ -163,6 +171,22 @@ function ProductModal({
                 value={description}
                 onChange={(event) => setDescription(event.currentTarget.value)}
               />
+              <label htmlFor="frigo-product-name-en">Engelsk navn (valgfrit)</label>
+              <input
+                id="frigo-product-name-en"
+                maxLength={120}
+                value={nameEn}
+                onChange={(event) => setNameEn(event.currentTarget.value)}
+                placeholder="English product name"
+              />
+              <label htmlFor="frigo-product-description-en">Engelsk beskrivelse (valgfrit)</label>
+              <textarea
+                id="frigo-product-description-en"
+                rows={3}
+                maxLength={1000}
+                value={descriptionEn}
+                onChange={(event) => setDescriptionEn(event.currentTarget.value)}
+              />
             </div>
           </div>
           <div className="frigo-product-form-grid">
@@ -235,12 +259,13 @@ function CategoryModal({
   productCounts: Map<number, number>;
   isSaving: boolean;
   onClose: () => void;
-  onCreate: (name: string) => Promise<void>;
-  onUpdate: (category: Category, name: string) => Promise<void>;
+  onCreate: (name: string, nameEn: string) => Promise<void>;
+  onUpdate: (category: Category, name: string, nameEn: string) => Promise<void>;
   onDelete: (category: Category) => Promise<void>;
 }) {
   const [newName, setNewName] = useState('');
-  const [editing, setEditing] = useState<{ category: Category; name: string } | null>(null);
+  const [newNameEn, setNewNameEn] = useState('');
+  const [editing, setEditing] = useState<{ category: Category; name: string; nameEn: string } | null>(null);
   const [deleting, setDeleting] = useState<Category | null>(null);
   const [error, setError] = useState('');
 
@@ -248,10 +273,12 @@ function CategoryModal({
     event.preventDefault();
     const name = newName.trim();
     if (!name) return;
+    const nameEn = newNameEn.trim();
     setError('');
     try {
-      await onCreate(name);
+      await onCreate(name, nameEn);
       setNewName('');
+      setNewNameEn('');
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Kategorien kunne ikke oprettes.');
     }
@@ -261,9 +288,10 @@ function CategoryModal({
     if (!editing) return;
     const name = editing.name.trim();
     if (!name) return;
+    const nameEn = editing.nameEn.trim();
     setError('');
     try {
-      await onUpdate(editing.category, name);
+      await onUpdate(editing.category, name, nameEn);
       setEditing(null);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Kategorien kunne ikke gemmes.');
@@ -305,6 +333,13 @@ function CategoryModal({
                 maxLength={80}
                 value={newName}
                 onChange={(event) => setNewName(event.currentTarget.value)}
+                placeholder="Dansk navn"
+              />
+              <input
+                maxLength={80}
+                value={newNameEn}
+                onChange={(event) => setNewNameEn(event.currentTarget.value)}
+                placeholder="English name (optional)"
               />
               <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !newName.trim()}>Opret</button>
             </div>
@@ -313,19 +348,28 @@ function CategoryModal({
             {categories.map((category) => (
               <div className="frigo-category-row" key={category.id}>
                 {editing?.category.id === category.id ? (
-                  <input
-                    aria-label={`Rediger ${category.name}`}
-                    autoFocus
-                    maxLength={80}
-                    value={editing.name}
-                    onChange={(event) => setEditing({ ...editing, name: event.currentTarget.value })}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        void saveCategory();
-                      }
-                    }}
-                  />
+                  <span className="frigo-category-edit-fields">
+                    <input
+                      aria-label={`Rediger ${category.name}`}
+                      autoFocus
+                      maxLength={80}
+                      value={editing.name}
+                      onChange={(event) => setEditing({ ...editing, name: event.currentTarget.value })}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void saveCategory();
+                        }
+                      }}
+                    />
+                    <input
+                      aria-label={`Engelsk navn for ${category.name}`}
+                      maxLength={80}
+                      placeholder="English name"
+                      value={editing.nameEn}
+                      onChange={(event) => setEditing({ ...editing, nameEn: event.currentTarget.value })}
+                    />
+                  </span>
                 ) : (
                   <span className="frigo-category-row-details">
                     <strong>{category.name}</strong>
@@ -343,7 +387,7 @@ function CategoryModal({
                       <button
                         className="frigo-product-icon-button"
                         type="button"
-                        onClick={() => setEditing({ category, name: category.name })}
+                        onClick={() => setEditing({ category, name: category.name, nameEn: category.name_en ?? '' })}
                         disabled={isSaving}
                         aria-label={`Rediger ${category.name}`}
                       ><ProductIcon kind="edit" /></button>
@@ -441,12 +485,12 @@ export default function ProductManagement() {
     const [productsResult, categoriesResult] = await Promise.all([
       supabase
         .from('products')
-        .select('id, company_id, category_id, name, description, unit, price, image_path, active')
+        .select('id, company_id, category_id, name, name_en, description, description_en, unit, price, image_path, active')
         .is('company_id', null)
         .order('name'),
       supabase
         .from('categories')
-        .select('id, name, department_id')
+        .select('id, name, name_en, department_id')
         .is('company_id', null)
         .is('department_id', null)
         .order('name'),
@@ -524,7 +568,9 @@ export default function ProductManagement() {
 
   async function saveProduct(input: {
     name: string;
+    nameEn: string;
     description: string;
+    descriptionEn: string;
     unit: string;
     price: number;
     categoryId: number | null;
@@ -555,7 +601,9 @@ export default function ProductManagement() {
         company_id: null,
         category_id: input.categoryId,
         name: input.name,
+        name_en: input.nameEn || null,
         description: input.description || null,
+        description_en: input.descriptionEn || null,
         unit: input.unit,
         price: input.price,
         active: input.active,
@@ -590,10 +638,10 @@ export default function ProductManagement() {
     }
   }
 
-  async function createCategory(name: string) {
+  async function createCategory(name: string, nameEn: string) {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('categories').insert({ company_id: null, name });
+      const { error } = await supabase.from('categories').insert({ company_id: null, name, name_en: nameEn || null });
       if (error) throw new Error(`Kategorien kunne ikke oprettes: ${error.message}`);
       setReloadKey((key) => key + 1);
     } finally {
@@ -601,12 +649,12 @@ export default function ProductManagement() {
     }
   }
 
-  async function updateCategory(category: Category, name: string) {
+  async function updateCategory(category: Category, name: string, nameEn: string) {
     setIsSaving(true);
     try {
       const { error } = await supabase
         .from('categories')
-        .update({ name })
+        .update({ name, name_en: nameEn || null })
         .eq('id', category.id)
         .is('company_id', null);
       if (error) throw new Error(`Kategorien kunne ikke gemmes: ${error.message}`);
