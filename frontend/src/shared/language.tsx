@@ -1,3 +1,4 @@
+import { useLocales } from 'expo-localization';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Text as NativeText, TextInput as NativeTextInput, type TextInputProps, type TextProps } from 'react-native';
@@ -287,28 +288,44 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function AppLanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AppLanguage>('da');
+  const locales = useLocales();
+  const deviceLanguage: AppLanguage = locales[0]?.languageCode?.toLowerCase() === 'da' ? 'da' : 'en';
+  const [language, setLanguageState] = useState<AppLanguage>(deviceLanguage);
+  const [hasManualPreference, setHasManualPreference] = useState(false);
 
   useEffect(() => {
     let isActive = true;
     void SecureStore.getItemAsync(languageStorageKey)
       .then((storedLanguage) => {
-        if (isActive && (storedLanguage === 'da' || storedLanguage === 'en')) {
+        if (!isActive) return;
+        if (storedLanguage === 'da' || storedLanguage === 'en') {
           setLanguageState(storedLanguage);
+          setHasManualPreference(true);
+        } else {
+          setLanguageState(deviceLanguage);
+          setHasManualPreference(false);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (isActive) setLanguageState(deviceLanguage);
+      });
     return () => { isActive = false; };
-  }, []);
+  }, [deviceLanguage]);
+
+  useEffect(() => {
+    if (!hasManualPreference) setLanguageState(deviceLanguage);
+  }, [deviceLanguage, hasManualPreference]);
 
   const setLanguage = useCallback(async (nextLanguage: AppLanguage) => {
     setLanguageState(nextLanguage);
+    setHasManualPreference(true);
     try {
       await SecureStore.setItemAsync(languageStorageKey, nextLanguage);
     } catch {
-      setLanguageState('da');
+      setHasManualPreference(false);
+      setLanguageState(deviceLanguage);
     }
-  }, []);
+  }, [deviceLanguage]);
 
   const value = useMemo(() => ({ language, setLanguage }), [language, setLanguage]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
