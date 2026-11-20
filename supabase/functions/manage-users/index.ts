@@ -171,6 +171,47 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
+    if (body.action === 'permanently-delete') {
+      if (actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can permanently delete users.' });
+      }
+
+      const userId = typeof body.userId === 'string' ? body.userId : '';
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+        return jsonResponse(400, { error: 'Choose a valid user.' });
+      }
+      if (userId === actor.id) {
+        return jsonResponse(400, { error: 'You cannot permanently delete your own account.' });
+      }
+
+      const { data: target, error: targetError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, status, avatar_path')
+        .eq('id', userId)
+        .maybeSingle();
+      if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
+      if (!target || target.status !== 'deleted') {
+        return jsonResponse(404, { error: 'The user does not exist or has not been soft-deleted.' });
+      }
+
+      const { error: deleteError } = await supabaseAdmin.rpc('permanently_delete_user', {
+        p_user_id: userId,
+      });
+      if (deleteError) {
+        return jsonResponse(409, { error: `Could not permanently delete the user: ${deleteError.message}` });
+      }
+
+      let avatarCleanupWarning: string | undefined;
+      if (target.avatar_path) {
+        const { error: avatarError } = await supabaseAdmin.storage
+          .from('profile-images')
+          .remove([target.avatar_path]);
+        if (avatarError) avatarCleanupWarning = avatarError.message;
+      }
+
+      return jsonResponse(200, { userId, avatarCleanupWarning });
+    }
+
     if (body.action === 'review-account-deletion-request') {
       const requestId = positiveId(body.requestId);
       if (requestId === null || typeof body.accept !== 'boolean') {
@@ -189,10 +230,6 @@ Deno.serve(async (request: Request) => {
       if (actor.role === 'company_admin' && deletionRequest.company_id !== actor.company_id) {
         return jsonResponse(403, { error: 'You can only review requests from your own company.' });
       }
-      if (actor.role === 'super_admin' && deletionRequest.requested_admin_id !== actor.id) {
-        return jsonResponse(403, { error: 'Only the assigned Superadmin can review this request.' });
-      }
-
       if (body.accept) {
         const { data: target, error: targetError } = await supabaseAdmin
           .from('profiles')
@@ -312,6 +349,15 @@ Deno.serve(async (request: Request) => {
       if (!name || !validEmail(email) || !validRoles(requestedRoles)) {
         return jsonResponse(400, { error: 'Enter a name, valid email address, and at least one role.' });
       }
+      if (body.canEditProducts !== undefined && actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can grant product editing access.' });
+      }
+      if (body.canEditProducts !== undefined && typeof body.canEditProducts !== 'boolean') {
+        return jsonResponse(400, { error: 'Choose a valid product editing permission.' });
+      }
+      if (body.canEditProducts === true && primaryRole(requestedRoles) !== 'company_admin') {
+        return jsonResponse(400, { error: 'Only company admins can have product editing access.' });
+      }
       const requestedRole = primaryRole(requestedRoles);
       if (actor.role === 'company_admin'
         && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
@@ -357,6 +403,7 @@ Deno.serve(async (request: Request) => {
         company_id: assignedCompanyId,
         department_id: departmentId,
         avatar_path: avatarPath,
+        can_edit_products: requestedRole === 'company_admin' && body.canEditProducts === true,
       });
       if (profileError) {
         const { error: cleanupError } = await supabaseAdmin.auth.admin.deleteUser(inviteData.user.id);
@@ -376,7 +423,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: target, error: targetError } = await supabaseAdmin
         .from('profiles')
-        .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id')
+        .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id, can_edit_products')
         .eq('id', userId)
         .maybeSingle();
       if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
@@ -422,6 +469,17 @@ Deno.serve(async (request: Request) => {
         || !['active', 'inactive', 'pending', 'rejected'].includes(requestedStatus)) {
         return jsonResponse(400, { error: 'Enter valid user details and status.' });
       }
+      if (body.canEditProducts !== undefined && actor.role !== 'super_admin') {
+        return jsonResponse(403, { error: 'Only a Superadmin can grant product editing access.' });
+      }
+      if (body.canEditProducts !== undefined && typeof body.canEditProducts !== 'boolean') {
+        return jsonResponse(400, { error: 'Choose a valid product editing permission.' });
+      }
+      if (body.canEditProducts === true && primaryRole(requestedRoles) !== 'company_admin') {
+        return jsonResponse(400, { error: 'Only company admins can have product editing access.' });
+      }
+      const canEditProducts = primaryRole(requestedRoles) === 'company_admin'
+        && (body.canEditProducts === undefined ? target.can_edit_products : body.canEditProducts);
       const requestedRole = primaryRole(requestedRoles);
       if (actor.role === 'company_admin'
         && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
@@ -477,6 +535,7 @@ Deno.serve(async (request: Request) => {
         status: requestedStatus,
         company_id: companyId,
         department_id: departmentId,
+        can_edit_products: canEditProducts,
       }).eq('id', userId);
       if (profileError) {
         const rollbackChanges: { email?: string; email_confirm?: boolean; ban_duration?: string } = {};

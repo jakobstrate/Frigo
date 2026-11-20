@@ -81,8 +81,7 @@ export default function AdminReview({
           .select('id, employee_id, company_id, requested_admin_id, created_at')
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
-        if (role === 'super_admin') query = query.eq('requested_admin_id', user.id);
-        else query = query.eq('company_id', companyId ?? -1);
+        if (role !== 'super_admin') query = query.eq('company_id', companyId ?? -1);
         return query;
       })(),
       (() => {
@@ -91,8 +90,7 @@ export default function AdminReview({
           .select('id, user_id, company_id, requested_admin_id, created_at')
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
-        if (role === 'super_admin') query = query.eq('requested_admin_id', user.id);
-        else query = query.eq('company_id', companyId ?? -1);
+        if (role !== 'super_admin') query = query.eq('company_id', companyId ?? -1);
         return query;
       })(),
     ]);

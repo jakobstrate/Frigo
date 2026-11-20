@@ -16,6 +16,7 @@ type ManagedUser = {
   status: UserStatus;
   invitation_completed: boolean;
   company_id: number | null;
+  can_edit_products: boolean;
   department_id: number | null;
   avatar_path: string | null;
   avatar_url: string | null;
@@ -26,6 +27,7 @@ type UserInput = {
   roles: UserRole[];
   companyId: number | null;
   departmentId: number | null;
+  canEditProducts: boolean;
   status: UserStatus;
   image?: File;
 };
@@ -102,6 +104,7 @@ function UserModal({
   const [email, setEmail] = useState(user?.email ?? '');
   const initialRoles = user?.roles ?? [user?.role ?? 'employee'];
   const [userRoles, setUserRoles] = useState<UserRole[]>(initialRoles);
+  const [canEditProducts, setCanEditProducts] = useState(user?.can_edit_products ?? false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user
     ? user.company_id
     : actorRole === 'company_admin'
@@ -190,6 +193,10 @@ function UserModal({
       roles: userRoles,
       companyId: selectedCompanyId,
       departmentId,
+      canEditProducts: canChooseRole
+        && userRoles.includes('company_admin')
+        && !userRoles.includes('super_admin')
+        && canEditProducts,
       status,
       image,
     }, user?.id);
@@ -292,6 +299,20 @@ function UserModal({
                 </label>
               ))}
             </fieldset>
+          )}
+
+          {canChooseRole && userRoles.includes('company_admin') && !userRoles.includes('super_admin') && (
+            <div className="frigo-user-product-access">
+              <span className="frigo-admin-form-section-label">Adgang til produktændringer</span>
+              <label className="frigo-user-radio">
+                <input
+                  type="checkbox"
+                  checked={canEditProducts}
+                  onChange={(event) => setCanEditProducts(event.currentTarget.checked)}
+                />
+                <span>Kan oprette, redigere og slette produkter og kategorier</span>
+              </label>
+            </div>
           )}
 
           {user && (
@@ -398,6 +419,47 @@ function RestoreUserModal({
   );
 }
 
+function PermanentlyDeleteUserModal({
+  user,
+  isDeleting,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  user: ManagedUser;
+  isDeleting: boolean;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="frigo-admin-modal-backdrop">
+      <section
+        className="frigo-admin-modal frigo-admin-delete-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="frigo-permanently-delete-user-title"
+        aria-busy={isDeleting}
+      >
+        <div className="frigo-admin-modal-header">
+          <h2 id="frigo-permanently-delete-user-title">Slet bruger permanent</h2>
+          <button className="frigo-admin-modal-close" type="button" onClick={onCancel} disabled={isDeleting} aria-label="Luk">×</button>
+        </div>
+        <p className="frigo-admin-modal-help">
+          {user.display_name} og login slettes permanent. Købs- og betalingshistorik bevares i den gældende femårige opbevaringsperiode, men brugerens identitet fjernes fra registreringerne. Handlingen kan ikke fortrydes.
+        </p>
+        {error && <p className="frigo-admin-error" role="alert">{error}</p>}
+        <div className="frigo-admin-modal-actions">
+          <button className="frigo-admin-secondary-button" type="button" onClick={onCancel} disabled={isDeleting}>Annuller</button>
+          <button className="frigo-admin-danger-button" type="button" onClick={onConfirm} disabled={isDeleting}>
+            {isDeleting ? 'Sletter...' : 'Slet permanent'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function UserManagement({
   role,
   companyId,
@@ -421,6 +483,8 @@ export default function UserManagement({
   const [isDeleting, setIsDeleting] = useState(false);
   const [restoringUser, setRestoringUser] = useState<ManagedUser | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [permanentlyDeletingUser, setPermanentlyDeletingUser] = useState<ManagedUser | null>(null);
+  const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
@@ -441,7 +505,7 @@ export default function UserManagement({
 
     let profileQuery = supabase
       .from('profiles')
-      .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id, avatar_path')
+      .select('id, display_name, email, role, roles, status, invitation_completed, company_id, can_edit_products, department_id, avatar_path')
       .order('display_name');
     profileQuery = statusFilter === 'deleted'
       ? profileQuery.eq('status', 'deleted')
@@ -538,6 +602,7 @@ export default function UserManagement({
           roles: input.roles,
           companyId: input.companyId,
           departmentId: input.departmentId,
+          ...(role === 'super_admin' ? { canEditProducts: input.canEditProducts } : {}),
           status: input.status,
         }
       : {
@@ -547,9 +612,10 @@ export default function UserManagement({
           roles: input.roles,
           companyId: input.companyId,
           departmentId: input.departmentId,
+          ...(role === 'super_admin' ? { canEditProducts: input.canEditProducts } : {}),
           avatarPath: uploadedPath,
         };
-    const { error } = await supabase.functions.invoke('manage-users', { body });
+    const { data, error } = await supabase.functions.invoke('manage-users', { body });
     if (error) {
       const message = await getFunctionError(error);
       if (uploadedPath) {
@@ -557,6 +623,25 @@ export default function UserManagement({
         if (cleanupError) return `${message} Billedet kunne heller ikke ryddes op: ${cleanupError.message}`;
       }
       return message;
+    }
+
+    if (role === 'super_admin') {
+      const targetUserId = userId ?? data?.userId;
+      if (typeof targetUserId !== 'string') {
+        return 'Brugeren blev gemt, men produktadgangen kunne ikke bekræftes.';
+      }
+      const { data: updatedProfile, error: permissionError } = await supabase
+        .from('profiles')
+        .update({ can_edit_products: input.canEditProducts })
+        .eq('id', targetUserId)
+        .select('id')
+        .maybeSingle();
+      if (permissionError) {
+        return `Brugeren blev gemt, men produktadgangen kunne ikke gemmes: ${permissionError.message}`;
+      }
+      if (!updatedProfile) {
+        return 'Brugeren blev gemt, men produktadgangen kunne ikke bekræftes.';
+      }
     }
 
     setShowCreateModal(false);
@@ -600,6 +685,26 @@ export default function UserManagement({
       await loadUsers();
     }
     setIsRestoring(false);
+  }
+
+  async function permanentlyDeleteUser() {
+    if (!permanentlyDeletingUser) return;
+    setIsPermanentlyDeleting(true);
+    setActionError('');
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'permanently-delete', userId: permanentlyDeletingUser.id },
+    });
+    if (error) {
+      setActionError(await getFunctionError(error));
+    } else {
+      const avatarWarning = typeof data?.avatarCleanupWarning === 'string'
+        ? ` Profilbilledet kunne ikke slettes: ${data.avatarCleanupWarning}`
+        : '';
+      setNotice(`${permanentlyDeletingUser.display_name} og login er slettet permanent.${avatarWarning}`);
+      setPermanentlyDeletingUser(null);
+      await loadUsers();
+    }
+    setIsPermanentlyDeleting(false);
   }
 
   const statusFilters: [StatusFilter, string][] = [
@@ -713,20 +818,36 @@ export default function UserManagement({
                         <div className="frigo-user-actions">
                           {user.status === 'deleted' ? (
                             role === 'super_admin' && (
-                              <button
-                                className="frigo-user-icon-button"
-                                type="button"
-                                aria-label={`Gendan ${user.display_name}`}
-                                title="Gendan bruger"
-                                disabled={!canManage}
-                                onClick={() => {
-                                  setNotice('');
-                                  setActionError('');
-                                  setRestoringUser(user);
-                                }}
-                              >
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4m-4 5a8 8 0 0 0 14.9 3M20 20v-4h-4" /></svg>
-                              </button>
+                              <>
+                                <button
+                                  className="frigo-user-icon-button"
+                                  type="button"
+                                  aria-label={`Gendan ${user.display_name}`}
+                                  title="Gendan bruger"
+                                  disabled={!canManage}
+                                  onClick={() => {
+                                    setNotice('');
+                                    setActionError('');
+                                    setRestoringUser(user);
+                                  }}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4m-4 5a8 8 0 0 0 14.9 3M20 20v-4h-4" /></svg>
+                                </button>
+                                <button
+                                  className="frigo-user-icon-button is-danger"
+                                  type="button"
+                                  aria-label={`Slet ${user.display_name} permanent`}
+                                  title="Slet permanent"
+                                  disabled={!canManage}
+                                  onClick={() => {
+                                    setNotice('');
+                                    setActionError('');
+                                    setPermanentlyDeletingUser(user);
+                                  }}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg>
+                                </button>
+                              </>
                             )
                           ) : (
                             <>
@@ -801,6 +922,15 @@ export default function UserManagement({
           error={actionError}
           onCancel={() => setRestoringUser(null)}
           onConfirm={() => void restoreUser()}
+        />
+      )}
+      {permanentlyDeletingUser && (
+        <PermanentlyDeleteUserModal
+          user={permanentlyDeletingUser}
+          isDeleting={isPermanentlyDeleting}
+          error={actionError}
+          onCancel={() => setPermanentlyDeletingUser(null)}
+          onConfirm={() => void permanentlyDeleteUser()}
         />
       )}
     </>

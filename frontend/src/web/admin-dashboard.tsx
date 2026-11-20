@@ -18,6 +18,7 @@ type AdminProfile = {
   email: string;
   role: AdminRole;
   company_id: number | null;
+  can_edit_products: boolean;
 };
 
 type DashboardState =
@@ -45,10 +46,10 @@ async function getPendingRequestCount(profile: Pick<AdminProfile, 'id' | 'role' 
     .select('id', { count: 'exact', head: true })
     .eq('status', 'pending');
   const scopedEmployeeCountQuery = profile.role === 'super_admin'
-    ? employeeCountQuery.eq('requested_admin_id', profile.id)
+    ? employeeCountQuery
     : employeeCountQuery.eq('company_id', profile.company_id ?? -1);
   const scopedDeletionCountQuery = profile.role === 'super_admin'
-    ? deletionCountQuery.eq('requested_admin_id', profile.id)
+    ? deletionCountQuery
     : deletionCountQuery.eq('company_id', profile.company_id ?? -1);
   const [employeeCountResult, deletionCountResult] = await Promise.all([
     scopedEmployeeCountQuery,
@@ -132,7 +133,7 @@ function AdminPageContent({
   }
 
   if (page === 'products') {
-    return <ProductManagement />;
+    return <ProductManagement canEditProducts={profile.role === 'super_admin' || profile.can_edit_products} />;
   }
 
   if (page === 'registrations') {
@@ -186,7 +187,7 @@ export default function AdminDashboard() {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, display_name, email, role, company_id, status')
+        .select('id, display_name, email, role, company_id, can_edit_products, status')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -214,6 +215,7 @@ export default function AdminDashboard() {
         email: profile.email,
         role: profile.role,
         company_id: profile.company_id,
+        can_edit_products: profile.can_edit_products,
       };
 
       let companyName = '';

@@ -11,7 +11,8 @@ set search_path = public, pg_temp
 as $$
 begin
   delete from public.payments payment
-  where payment.user_id in (
+  where payment.anonymized_at <= now() - interval '5 years'
+  or payment.user_id in (
     select profile.id
     from public.profiles profile
     left join public.companies company on company.id = profile.company_id
@@ -27,7 +28,8 @@ begin
   );
 
   delete from public.purchases purchase
-  where purchase.purchaser_id in (
+  where purchase.anonymized_at <= now() - interval '5 years'
+  or purchase.purchaser_id in (
     select profile.id
     from public.profiles profile
     left join public.companies company on company.id = profile.company_id
