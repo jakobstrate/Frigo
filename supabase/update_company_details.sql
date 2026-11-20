@@ -47,7 +47,7 @@ begin
       select 1 from public.profiles
       where id = p_admin_id
         and company_id = p_company_id
-        and role = 'company_admin'
+        and roles @> array['company_admin'::public.app_role]
         and status = 'active'
     ) then
       raise exception 'Select an active administrator belonging to this company';
@@ -107,13 +107,22 @@ begin
     end if;
   end loop;
 
-  insert into public.profiles (id, display_name, email, role, status, company_id, invitation_completed)
-  values (p_admin_id, trim(p_admin_name), lower(trim(p_admin_email)), 'company_admin', 'inactive', p_company_id, false)
+  insert into public.profiles (id, display_name, email, role, roles, status, company_id, invitation_completed)
+  values (
+    p_admin_id,
+    trim(p_admin_name),
+    lower(trim(p_admin_email)),
+    'company_admin',
+    array['company_admin'::public.app_role, 'employee'::public.app_role],
+    'inactive',
+    p_company_id,
+    false
+  )
   on conflict (id) do update
   set display_name = excluded.display_name,
       email = excluded.email
   where profiles.company_id = p_company_id
-    and profiles.role = 'company_admin'
+    and profiles.roles @> array['company_admin'::public.app_role]
     and profiles.status = 'active';
 
   if not found then

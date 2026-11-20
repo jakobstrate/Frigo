@@ -3,9 +3,9 @@ export type AdminRole = 'super_admin' | 'company_admin';
 export const ADMIN_PAGES = [
   { id: 'overview', label: 'Overblik', description: 'Et samlet overblik over Frigo.' },
   { id: 'companies', label: 'Virksomheder', description: 'Administrer virksomheder i Frigo.' },
+  { id: 'departments', label: 'Afdelinger', description: 'Administrer virksomhedens afdelinger.' },
   { id: 'users', label: 'Brugere', description: 'Se og administrer brugere.' },
   { id: 'requests', label: 'Anmodninger', description: 'Gennemgå adgangsanmodninger.' },
-  { id: 'departments', label: 'Afdelinger', description: 'Administrer virksomhedens afdelinger.' },
   { id: 'products', label: 'Produkter', description: 'Administrer produktkataloget.' },
   { id: 'registrations', label: 'Registreringer', description: 'Se virksomhedens registreringer.' },
 ] as const;

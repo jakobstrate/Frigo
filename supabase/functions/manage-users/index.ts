@@ -40,6 +40,23 @@ function validRole(value: unknown): value is AppRole {
   return value === 'super_admin' || value === 'company_admin' || value === 'employee';
 }
 
+function validRoles(value: unknown): value is AppRole[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every(validRole)
+    && new Set(value).size === value.length;
+}
+
+function primaryRole(roles: AppRole[]): AppRole {
+  if (roles.includes('super_admin')) return 'super_admin';
+  if (roles.includes('company_admin')) return 'company_admin';
+  return 'employee';
+}
+
+function sameRoles(left: AppRole[], right: AppRole[]) {
+  return left.length === right.length && left.every((role) => right.includes(role));
+}
+
 function validEmail(value: unknown): value is string {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -115,7 +132,7 @@ async function hasOtherActiveCompanyAdmins(companyId: number, excludedUserId?: s
     .from('profiles')
     .select('id')
     .eq('company_id', companyId)
-    .eq('role', 'company_admin')
+    .contains('roles', ['company_admin'])
     .eq('status', 'active');
   if (excludedUserId) query = query.neq('id', excludedUserId);
   const { data, error } = await query.limit(1);
@@ -287,19 +304,22 @@ Deno.serve(async (request: Request) => {
     if (body.action === 'create') {
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const requestedRole = body.role;
+      const requestedRoles = body.roles === undefined && validRole(body.role) ? [body.role] : body.roles;
       const companyId = positiveId(body.companyId);
       const departmentId = body.departmentId === null ? null : positiveId(body.departmentId);
       const avatarPath = typeof body.avatarPath === 'string' ? body.avatarPath : null;
 
-      if (!name || !validEmail(email) || !validRole(requestedRole)) {
-        return jsonResponse(400, { error: 'Enter a name, valid email address, and role.' });
+      if (!name || !validEmail(email) || !validRoles(requestedRoles)) {
+        return jsonResponse(400, { error: 'Enter a name, valid email address, and at least one role.' });
       }
-      if (actor.role === 'company_admin' && requestedRole !== 'employee') {
+      const requestedRole = primaryRole(requestedRoles);
+      if (actor.role === 'company_admin'
+        && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
         return jsonResponse(403, { error: 'Company admins can only create employees.' });
       }
       const assignedCompanyId = actor.role === 'company_admin' ? actor.company_id : companyId;
-      if (requestedRole !== 'super_admin' && assignedCompanyId === null) {
+      if ((requestedRoles.includes('employee') || requestedRoles.includes('company_admin'))
+        && assignedCompanyId === null) {
         return jsonResponse(400, { error: 'Choose a company for this user.' });
       }
       if (body.departmentId !== null && departmentId === null) {
@@ -331,6 +351,7 @@ Deno.serve(async (request: Request) => {
         display_name: name,
         email,
         role: requestedRole,
+        roles: requestedRoles,
         status: 'inactive',
         invitation_completed: false,
         company_id: assignedCompanyId,
@@ -355,7 +376,7 @@ Deno.serve(async (request: Request) => {
 
       const { data: target, error: targetError } = await supabaseAdmin
         .from('profiles')
-        .select('id, display_name, email, role, status, invitation_completed, company_id, department_id')
+        .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id')
         .eq('id', userId)
         .maybeSingle();
       if (targetError) return jsonResponse(500, { error: `Could not load the user: ${targetError.message}` });
@@ -388,25 +409,30 @@ Deno.serve(async (request: Request) => {
 
       const name = typeof body.name === 'string' ? body.name.trim() : target.display_name;
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : target.email;
-      const requestedRole = body.role === undefined ? target.role : body.role;
+      const requestedRoles = body.roles === undefined
+        ? body.role === undefined ? target.roles : [body.role]
+        : body.roles;
       const companyId = body.companyId === undefined ? target.company_id : positiveId(body.companyId);
       const departmentId = body.departmentId === undefined
         ? target.department_id
         : body.departmentId === null ? null : positiveId(body.departmentId);
       const requestedStatus = body.status === undefined ? target.status : body.status as UserStatus;
 
-      if (!name || !validEmail(email) || !validRole(requestedRole)
+      if (!name || !validEmail(email) || !validRoles(requestedRoles)
         || !['active', 'inactive', 'pending', 'rejected'].includes(requestedStatus)) {
         return jsonResponse(400, { error: 'Enter valid user details and status.' });
       }
-      if (actor.role === 'company_admin' && requestedRole !== 'employee') {
+      const requestedRole = primaryRole(requestedRoles);
+      if (actor.role === 'company_admin'
+        && (requestedRoles.length !== 1 || requestedRole !== 'employee')) {
         return jsonResponse(403, { error: 'Company admins cannot change user roles.' });
       }
       if (actor.role !== 'super_admin'
-        && (requestedRole !== target.role || companyId !== target.company_id)) {
+        && (!sameRoles(requestedRoles, target.roles) || companyId !== target.company_id)) {
         return jsonResponse(403, { error: 'Only a Superadmin can change roles or company assignments.' });
       }
-      if (requestedRole !== 'super_admin' && companyId === null) {
+      if ((requestedRoles.includes('employee') || requestedRoles.includes('company_admin'))
+        && companyId === null) {
         return jsonResponse(400, { error: 'Choose a company for this user.' });
       }
       if (requestedStatus === 'active' && ['pending', 'rejected'].includes(target.status)) {
@@ -419,9 +445,9 @@ Deno.serve(async (request: Request) => {
         return jsonResponse(400, { error: 'Choose a valid department.' });
       }
       await validateCompanyAndDepartment(companyId, departmentId);
-      const becomesActiveCompanyAdmin = requestedRole === 'company_admin'
+      const becomesActiveCompanyAdmin = requestedRoles.includes('company_admin')
         && requestedStatus === 'active'
-        && (target.role !== 'company_admin' || target.status !== 'active' || target.company_id !== companyId);
+        && (!target.roles.includes('company_admin') || target.status !== 'active' || target.company_id !== companyId);
       const hadOtherCompanyAdmin = becomesActiveCompanyAdmin && companyId !== null
         ? await hasOtherActiveCompanyAdmins(companyId, userId)
         : true;
@@ -447,6 +473,7 @@ Deno.serve(async (request: Request) => {
         display_name: name,
         email,
         role: requestedRole,
+        roles: requestedRoles,
         status: requestedStatus,
         company_id: companyId,
         department_id: departmentId,
@@ -529,6 +556,133 @@ Deno.serve(async (request: Request) => {
       }
 
       return jsonResponse(200, { companyId, status: 'deleted' });
+    }
+
+    if (body.action === 'set-company-status') {
+      if (actor.role !== 'super_admin') return jsonResponse(403, { error: 'Only a Superadmin can change a company status.' });
+      const companyId = positiveId(body.companyId);
+      const requestedStatus = body.status;
+      if (companyId === null || (requestedStatus !== 'active' && requestedStatus !== 'inactive')) {
+        return jsonResponse(400, { error: 'Choose a valid company and status.' });
+      }
+
+      const { data: company, error: companyError } = await supabaseAdmin
+        .from('companies')
+        .select('id, status')
+        .eq('id', companyId)
+        .maybeSingle();
+      if (companyError) return jsonResponse(500, { error: `Could not load the company: ${companyError.message}` });
+      if (!company || company.status === 'deleted') {
+        return jsonResponse(404, { error: 'The company does not exist or has already been deleted.' });
+      }
+      if (company.status === requestedStatus) return jsonResponse(200, { companyId, status: requestedStatus });
+
+      const { data: companyProfiles, error: profilesError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, status, invitation_completed')
+        .eq('company_id', companyId)
+        .neq('status', 'deleted');
+      if (profilesError) return jsonResponse(500, { error: `Could not load company users: ${profilesError.message}` });
+
+      const changedProfiles: { id: string; status: string; invitation_completed: boolean }[] = [];
+      const restoreLoginStates = async () => {
+        const rollbackErrors: string[] = [];
+        for (const profile of changedProfiles) {
+          const shouldRemainBanned = profile.status === 'rejected'
+            || (profile.status === 'inactive' && profile.invitation_completed);
+          const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            ban_duration: shouldRemainBanned ? '876000h' : 'none',
+          });
+          if (rollbackError) rollbackErrors.push(rollbackError.message);
+        }
+        return rollbackErrors;
+      };
+
+      if (requestedStatus === 'inactive') {
+        for (const profile of companyProfiles ?? []) {
+          const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            ban_duration: '876000h',
+          });
+          if (banError) {
+            const { data: currentCompany, error: currentCompanyError } = await supabaseAdmin
+              .from('companies')
+              .select('status')
+              .eq('id', companyId)
+              .maybeSingle();
+            const rollbackErrors = !currentCompanyError && currentCompany?.status === 'active'
+              ? await restoreLoginStates()
+              : [];
+            if (currentCompanyError || !currentCompany || currentCompany.status !== 'active') {
+              rollbackErrors.push('Login remains blocked because the company is no longer active or its status could not be verified.');
+            }
+            const rollbackMessage = rollbackErrors.length ? ` Some login rollbacks failed: ${rollbackErrors.join('; ')}` : '';
+            return jsonResponse(500, { error: `Could not block login for every company user: ${banError.message}.${rollbackMessage}` });
+          }
+          changedProfiles.push(profile);
+        }
+      }
+
+      const { data: updatedCompany, error: updateError } = await supabaseAdmin
+        .from('companies')
+        .update({ status: requestedStatus })
+        .eq('id', companyId)
+        .eq('status', company.status)
+        .select('id')
+        .maybeSingle();
+      if (updateError || !updatedCompany) {
+        const { data: currentCompany, error: currentCompanyError } = await supabaseAdmin
+          .from('companies')
+          .select('status')
+          .eq('id', companyId)
+          .maybeSingle();
+        if (!currentCompanyError && currentCompany?.status === requestedStatus) {
+          return jsonResponse(200, { companyId, status: requestedStatus });
+        }
+        const rollbackErrors = requestedStatus === 'inactive'
+          && !currentCompanyError
+          && currentCompany?.status === 'active'
+          ? await restoreLoginStates()
+          : [];
+        if (requestedStatus === 'inactive' && (currentCompanyError || !currentCompany || currentCompany.status !== 'active')) {
+          rollbackErrors.push('Login remains blocked because the company status could not be verified as active.');
+        }
+        const rollbackMessage = rollbackErrors.length ? ` Some login rollbacks failed: ${rollbackErrors.join('; ')}` : '';
+        const errorMessage = updateError?.message ?? 'The company status changed before this update completed.';
+        return jsonResponse(409, { error: `Could not update the company status: ${errorMessage}.${rollbackMessage}` });
+      }
+
+      if (requestedStatus === 'active') {
+        for (const profile of companyProfiles ?? []) {
+          if (profile.status !== 'active' && profile.status !== 'pending'
+            && !(profile.status === 'inactive' && !profile.invitation_completed)) continue;
+          const { error: unbanError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            ban_duration: 'none',
+          });
+          if (unbanError) {
+            const { error: companyRollbackError } = await supabaseAdmin
+              .from('companies')
+              .update({ status: 'inactive' })
+              .eq('id', companyId)
+              .eq('status', 'active');
+            const rebanErrors: string[] = [];
+            for (const reactivatedProfile of changedProfiles) {
+              const { error: rebanError } = await supabaseAdmin.auth.admin.updateUserById(reactivatedProfile.id, {
+                ban_duration: '876000h',
+              });
+              if (rebanError) rebanErrors.push(rebanError.message);
+            }
+            const rollbackErrors = [
+              ...(companyRollbackError ? [`Company status rollback failed: ${companyRollbackError.message}`] : []),
+              ...rebanErrors,
+            ];
+            const rollbackMessage = rollbackErrors.length ? ` Rollback issues: ${rollbackErrors.join('; ')}` : '';
+            return jsonResponse(500, { error: `The company was activated, but login could not be restored for every user: ${unbanError.message}.${rollbackMessage}` });
+          }
+          changedProfiles.push(profile);
+        }
+      }
+
+      return jsonResponse(200, { companyId, status: requestedStatus });
     }
 
     return jsonResponse(400, { error: 'Unknown user-management action.' });

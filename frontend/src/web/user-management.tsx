@@ -12,6 +12,7 @@ type ManagedUser = {
   display_name: string;
   email: string;
   role: UserRole;
+  roles: UserRole[];
   status: UserStatus;
   invitation_completed: boolean;
   company_id: number | null;
@@ -22,7 +23,7 @@ type ManagedUser = {
 type UserInput = {
   name: string;
   email: string;
-  role: UserRole;
+  roles: UserRole[];
   companyId: number | null;
   departmentId: number | null;
   status: UserStatus;
@@ -91,10 +92,15 @@ function UserModal({
 }) {
   const [name, setName] = useState(user?.display_name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
-  const [userRole, setUserRole] = useState<UserRole>(user?.role ?? 'employee');
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
-    user?.company_id ?? (actorRole === 'company_admin' ? actorCompanyId : companies[0]?.id ?? null),
-  );
+  const initialRoles = user?.roles ?? [user?.role ?? 'employee'];
+  const [userRoles, setUserRoles] = useState<UserRole[]>(initialRoles);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(user
+    ? user.company_id
+    : actorRole === 'company_admin'
+      ? actorCompanyId
+      : initialRoles.some((role) => role === 'employee' || role === 'company_admin')
+        ? companies[0]?.id ?? null
+        : null);
   const [departmentId, setDepartmentId] = useState<number | null>(user?.department_id ?? null);
   const [status, setStatus] = useState<UserStatus>(user?.status ?? 'active');
   const [image, setImage] = useState<File | undefined>();
@@ -124,6 +130,14 @@ function UserModal({
       department.id === departmentId && department.company_id === nextCompanyId)) {
       setDepartmentId(null);
     }
+  }
+
+  function handleRoleChange(role: UserRole, checked: boolean) {
+    setUserRoles((currentRoles) => {
+      if (checked) return currentRoles.includes(role) ? currentRoles : [...currentRoles, role];
+      if (currentRoles.length === 1) return currentRoles;
+      return currentRoles.filter((currentRole) => currentRole !== role);
+    });
   }
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -165,7 +179,7 @@ function UserModal({
     const error = await onSubmit({
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      role: userRole,
+      roles: userRoles,
       companyId: selectedCompanyId,
       departmentId,
       status,
@@ -178,9 +192,10 @@ function UserModal({
   const canChooseRole = actorRole === 'super_admin';
   const canChooseCompany = actorRole === 'super_admin';
   const showCompanyField = actorRole === 'super_admin';
+  const requiresCompany = userRoles.includes('employee') || userRoles.includes('company_admin');
   const canEditStatus = user?.invitation_completed && (user.status === 'active' || user.status === 'inactive');
   const imagePreview = previewUrl || user?.avatar_url || '';
-  const canUseImage = selectedCompanyId !== null && (!user || actorRole === 'super_admin' || user.role === 'employee');
+  const canUseImage = selectedCompanyId !== null && (!user || actorRole === 'super_admin' || userRoles.includes('employee'));
 
   return (
     <div className="frigo-admin-modal-backdrop">
@@ -231,7 +246,7 @@ function UserModal({
                     value={selectedCompanyId ?? ''}
                     onChange={(event) => handleCompanyChange(event.currentTarget.value)}
                   >
-                    {userRole === 'super_admin' && <option value="">Hele systemet</option>}
+                    {userRoles.includes('super_admin') && <option value="">Hele systemet</option>}
                     {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
                   </select>
                 ) : null}
@@ -253,19 +268,19 @@ function UserModal({
 
           {canChooseRole && (
             <fieldset className="frigo-user-role-fieldset">
-              <legend>Rolle</legend>
+              <legend>Roller</legend>
               {(['employee', 'company_admin', 'super_admin'] as UserRole[]).map((roleOption) => (
                 <label className="frigo-user-radio" key={roleOption}>
                   <input
-                    type="radio"
-                    name="frigo-user-role"
+                    type="checkbox"
                     value={roleOption}
-                    checked={userRole === roleOption}
-                    onChange={() => setUserRole(roleOption)}
+                    checked={userRoles.includes(roleOption)}
+                    onChange={(event) => handleRoleChange(roleOption, event.currentTarget.checked)}
                   />
                   <span>{roleLabel(roleOption)}</span>
-                  {roleOption === 'employee' && <small>Bruger kun appen</small>}
-                  {roleOption === 'company_admin' && <small>Adgang til adminpanelet</small>}
+                  {roleOption === 'employee' && <small>Adgang til appen</small>}
+                  {roleOption === 'company_admin' && <small>Adminadgang til den valgte virksomhed</small>}
+                  {roleOption === 'super_admin' && <small>Global adminadgang</small>}
                 </label>
               ))}
             </fieldset>
@@ -298,7 +313,7 @@ function UserModal({
           {formError && <p className="frigo-admin-error" role="alert">{formError}</p>}
           <div className="frigo-admin-modal-actions">
             <button className="frigo-admin-secondary-button" type="button" onClick={onClose} disabled={isSaving}>Annuller</button>
-            <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !name.trim() || !email.trim() || (userRole !== 'super_admin' && selectedCompanyId === null)}>
+            <button className="frigo-admin-primary-button" type="submit" disabled={isSaving || !name.trim() || !email.trim() || (requiresCompany && selectedCompanyId === null) || userRoles.length === 0}>
               {isSaving ? 'Gemmer...' : user ? 'Gem ændringer' : 'Opret bruger'}
             </button>
           </div>
@@ -418,7 +433,7 @@ export default function UserManagement({
 
     let profileQuery = supabase
       .from('profiles')
-      .select('id, display_name, email, role, status, invitation_completed, company_id, department_id, avatar_path')
+      .select('id, display_name, email, role, roles, status, invitation_completed, company_id, department_id, avatar_path')
       .order('display_name');
     profileQuery = statusFilter === 'deleted'
       ? profileQuery.eq('status', 'deleted')
@@ -466,6 +481,7 @@ export default function UserManagement({
     setUsers(profileRows.map((profile) => ({
       ...profile,
       role: profile.role as UserRole,
+      roles: profile.roles as UserRole[],
       status: profile.status as UserStatus,
       avatar_url: profile.avatar_path ? imageByPath.get(profile.avatar_path) ?? null : null,
     })));
@@ -511,7 +527,7 @@ export default function UserManagement({
           userId,
           name: input.name,
           email: input.email,
-          role: input.role,
+          roles: input.roles,
           companyId: input.companyId,
           departmentId: input.departmentId,
           status: input.status,
@@ -520,7 +536,7 @@ export default function UserManagement({
           action: 'create',
           name: input.name,
           email: input.email,
-          role: input.role,
+          roles: input.roles,
           companyId: input.companyId,
           departmentId: input.departmentId,
           avatarPath: uploadedPath,
@@ -679,7 +695,7 @@ export default function UserManagement({
                         <span className="frigo-user-company">{role === 'super_admin' ? companyName || 'Alle virksomheder' : companies.find(({ id }) => id === companyId)?.name ?? 'Virksomhed'}</span>
                         <small className="frigo-user-department">{departmentName}</small>
                       </td>
-                      <td><span className={`frigo-user-role-chip is-${user.role}`}>{roleLabel(user.role)}</span></td>
+                      <td><span className={`frigo-user-role-chip is-${user.role}`}>{user.roles.map(roleLabel).join(' + ')}</span></td>
                       <td>
                         <span className={`frigo-user-status is-${user.status === 'deleted' ? 'deleted' : user.invitation_completed ? user.status : 'pending'}`}>
                           {statusLabel(user.status, user.invitation_completed)}

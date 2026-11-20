@@ -67,7 +67,7 @@ export default function AdminOverview() {
             .order('name'),
           supabase
             .from('profiles')
-            .select('company_id, role, status, invitation_completed')
+            .select('company_id, roles, status, invitation_completed')
             .neq('status', 'deleted'),
           supabase
             .from('purchases')
@@ -91,9 +91,9 @@ export default function AdminOverview() {
             activeUsers: 0,
             inactiveUsers: 0,
           };
-          if (profile.role === 'company_admin') counts.companyAdmins += 1;
-          if (profile.role === 'employee' && profile.status === 'active') counts.activeUsers += 1;
-          if (profile.role === 'employee' && profile.status === 'inactive') counts.inactiveUsers += 1;
+          if (profile.roles.includes('company_admin')) counts.companyAdmins += 1;
+          if (profile.roles.includes('employee') && profile.status === 'active') counts.activeUsers += 1;
+          if (profile.roles.includes('employee') && profile.status === 'inactive') counts.inactiveUsers += 1;
           countsByCompany.set(profile.company_id, counts);
         }
 

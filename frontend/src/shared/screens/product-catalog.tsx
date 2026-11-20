@@ -423,7 +423,7 @@ export function ProductCatalog() {
           void refreshEmployeeScope();
           void refreshCatalog();
         }
-      }, 5000);
+      }, 30000);
     }
 
     async function loadEmployeeData() {
